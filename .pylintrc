@@ -1,0 +1,26 @@
+[MASTER]
+# Load additional plugins (like for Pydantic, if needed)
+# load-plugins=
+
+[MESSAGES CONTROL]
+# Disable specific Pylint rules globally (if desired)
+# Example: C0114 (missing-module-docstring), C0115 (missing-class-docstring), C0116 (missing-function-docstring)
+# Uncomment and adjust if you prefer to disable globally:
+# disable=C0114,C0115,C0116
+
+[TYPECHECK]
+# Silence false positives about dynamically created attributes in Pydantic models
+generated-members=staged_changes, working_directory, unpushed_commits, risk_assessment, potential_conflicts, is_high_risk
+
+[FORMAT]
+# Max line length (can align with Black, isort, etc.)
+max-line-length=120
+
+[DESIGN]
+# If desired, you can increase these to reduce "too-many-*" complaints
+max-args=10
+max-returns=10
+
+[REPORTS]
+# Reduce noise from the final summary report
+reports=no
