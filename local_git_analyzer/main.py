@@ -51,7 +51,6 @@ def create_server() -> FastMCP:
         Provide a repository path to analyze, or the tool will attempt to find a git repository
         in the current directory or use the default configured path.
         """,
-        tags={"git", "analysis", "local", "changes"},
     )
 
     # Initialize services
