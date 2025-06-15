@@ -1,19 +1,19 @@
-"""FastMCP tools for working directory analysis."""
+"""FastMCP tools for working directory analysis with enhanced return types."""
 
 import time
 from pathlib import Path
+from typing import Any
 
 from fastmcp import Context, FastMCP
 from pydantic import Field
-from typing import Any
 
-from ..models.changes import FileStatus
-from ..models.repository import LocalRepository
-from ..utils import find_git_root, is_git_repository
+from local_git_analyzer.models.changes import FileStatus
+from local_git_analyzer.models.repository import LocalRepository
+from local_git_analyzer.utils import find_git_root, is_git_repository
 
 
 def register_working_directory_tools(mcp: FastMCP) -> None:
-    """Register working directory analysis tools."""
+    """Register enhanced working directory analysis tools."""
 
     @mcp.tool()
     async def analyze_working_directory(
@@ -26,6 +26,55 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
 
         Returns detailed information about modified, added, deleted, renamed,
         and untracked files in the working directory.
+
+        **Return Type**: Dict with WorkingDirectoryChanges structure
+        ```python
+        {
+            "repository_path": str,           # Pass to other repository tools
+            "total_files_changed": int,       # Use for conditional workflow logic
+            "has_changes": bool,              # Use to determine if staging/commit tools should run
+            "summary": {                      # Change counts for analysis routing
+                "modified": int, "added": int, "deleted": int,
+                "renamed": int, "untracked": int
+            },
+            "files": {                        # Categorized file lists for targeted analysis
+                "modified": List[FileStatus], "added": List[FileStatus],
+                "deleted": List[FileStatus], "renamed": List[FileStatus],
+                "untracked": List[FileStatus]
+            },
+            "diffs": List[dict] | None        # Diff content if include_diffs=True
+        }
+        ```
+
+        **Key Fields for Chaining**:
+        - `has_changes` (bool): Use to determine if staging/commit tools should be called
+        - `repository_path` (str): Pass to other repository analysis tools
+        - `total_files_changed` (int): Use for conditional workflow logic
+        - `files.modified` (list): Get specific file types for targeted analysis
+        - `summary` (dict): Change type counts for analysis routing
+
+        **Common Chaining Patterns**:
+        ```python
+        # Basic workflow decision
+        wd_result = await analyze_working_directory(repo_path)
+        if wd_result["has_changes"]:
+            staged_result = await analyze_staged_changes(wd_result["repository_path"])
+
+        # Risk-based routing
+        if wd_result["total_files_changed"] > 10:
+            validation = await validate_staged_changes(wd_result["repository_path"])
+
+        # File-specific analysis
+        for file_info in wd_result["files"]["modified"]:
+            if file_info["total_changes"] > 100:
+                diff_result = await get_file_diff(file_info["path"], wd_result["repository_path"])
+        ```
+
+        **Decision Points**:
+        - `has_changes=True`: Repository has work → analyze staging status
+        - `total_files_changed > 10`: Many changes → run validation
+        - `summary.untracked > 0`: New files → check if should be staged
+        - `files.modified`: Modified files → get detailed diffs if needed
         """
         start_time = time.time()
         await ctx.info(f"Starting working directory analysis for: {repository_path}")
@@ -55,7 +104,7 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.report_progress(1, 4)
             await ctx.debug("Detecting working directory changes")
 
-            # Detect working directory changes
+            # Detect working directory changes - returns WorkingDirectoryChanges model
             changes = await mcp.change_detector.detect_working_directory_changes(repo)
 
             await ctx.report_progress(2, 4)
@@ -108,6 +157,53 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
         """Get detailed diff for a specific file.
 
         Returns the diff content, statistics, and metadata for a single file.
+
+        **Return Type**: Dict with FileDiff structure
+        ```python
+        {
+            "file_path": str,                 # Path to analyzed file
+            "old_path": str | None,           # Original path if renamed
+            "has_changes": bool,              # Whether file has changes - use for conditional processing
+            "is_binary": bool,                # Whether file is binary - affects diff availability
+            "is_large_change": bool,          # Whether change >100 lines - use for review prioritization
+            "statistics": {                   # Line change statistics for impact assessment
+                "lines_added": int, "lines_deleted": int, "total_changes": int
+            },
+            "hunks": int,                     # Number of diff hunks - indicates complexity
+            "diff_content": str               # Actual diff content for code review
+        }
+        ```
+
+        **Key Fields for Chaining**:
+        - `has_changes` (bool): Whether file actually has changes
+        - `is_large_change` (bool): Whether change is >100 lines (use for review prioritization)
+        - `is_binary` (bool): Whether file is binary (affects further text analysis)
+        - `statistics.total_changes` (int): Total line changes for impact assessment
+        - `diff_content` (str): Actual diff for code review tools
+
+        **Common Chaining Patterns**:
+        ```python
+        # Check if file needs detailed review
+        diff_result = await get_file_diff("src/main.py", repo_path)
+        if diff_result["is_large_change"]:
+            validation = await validate_staged_changes(repo_path)
+
+        # Route based on file type
+        if not diff_result["is_binary"]:
+            # Can do text-based analysis on diff_result["diff_content"]
+            pass
+
+        # Impact-based decisions
+        if diff_result["statistics"]["total_changes"] > 50:
+            # Large change - might need extra validation
+            pass
+        ```
+
+        **Decision Points**:
+        - `has_changes=False`: No diff content → skip further analysis
+        - `is_binary=True`: Binary file → skip text-based tools
+        - `is_large_change=True`: Large change → trigger validation workflows
+        - `statistics.total_changes > X`: Impact-based routing
         """
         await ctx.info(f"Getting diff for file: {file_path} (staged: {staged})")
 
@@ -131,7 +227,7 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
 
             await ctx.debug("Parsing diff content")
 
-            # Parse diff
+            # Parse diff using existing FileDiff model
             file_diffs = mcp.diff_analyzer.parse_diff(diff_content)
 
             if not file_diffs:
@@ -183,6 +279,40 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
         """Get list of untracked files.
 
         Returns all files that are not tracked by git, optionally including ignored files.
+
+        **Return Type**: Dict with untracked file information
+        ```python
+        {
+            "repository_path": str,           # Path to analyzed repository
+            "untracked_count": int,           # Number of untracked files (>0 means new work)
+            "files": List[FileStatus]         # List of untracked file information
+        }
+        ```
+
+        **Key Fields for Chaining**:
+        - `untracked_count` (int): Number of untracked files (>0 means new work exists)
+        - `repository_path` (str): Pass to other repository tools
+        - `files` (list): Individual file information for iteration
+
+        **Common Chaining Patterns**:
+        ```python
+        # Check for new work
+        untracked_result = await get_untracked_files(repo_path)
+        if untracked_result["untracked_count"] > 0:
+            # Has new files - analyze working directory for staging decisions
+            wd_result = await analyze_working_directory(untracked_result["repository_path"])
+
+        # Process individual files
+        for file_info in untracked_result["files"]:
+            if not file_info["is_binary"]:
+                # Can analyze text files further
+                pass
+        ```
+
+        **Decision Points**:
+        - `untracked_count > 0`: New files exist → check if should be staged
+        - `untracked_count == 0`: No new files → focus on modified files
+        - Individual files can be analyzed for staging decisions
         """
         await ctx.info(f"Getting untracked files for: {repository_path}")
 

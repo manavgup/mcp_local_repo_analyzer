@@ -1,4 +1,4 @@
-"""FastMCP tools for staging area analysis."""
+"""FastMCP tools for staging area analysis with enhanced return types."""
 
 import time
 from pathlib import Path
@@ -7,8 +7,8 @@ from typing import Any
 from fastmcp import Context, FastMCP
 from pydantic import Field
 
-from ..models.repository import LocalRepository
-from ..utils import find_git_root, is_git_repository
+from local_git_analyzer.models.repository import LocalRepository
+from local_git_analyzer.utils import find_git_root, is_git_repository
 
 
 def register_staging_area_tools(mcp: FastMCP):
@@ -24,6 +24,53 @@ def register_staging_area_tools(mcp: FastMCP):
 
         Returns information about all files that have been staged (added to index)
         and are ready to be committed.
+
+        **Return Type**: Dict with StagedChanges structure
+        ```python
+        {
+            "repository_path": str,           # Pass to other repository tools
+            "total_staged_files": int,        # Number of files staged - use for conditional logic
+            "ready_to_commit": bool,          # Whether staged changes exist - use for commit workflow
+            "statistics": {                   # Line change statistics for impact assessment
+                "total_additions": int, "total_deletions": int
+            },
+            "staged_files": List[FileStatus], # List of staged file information for iteration
+            "diffs": List[dict] | None        # Diff content if include_diffs=True
+        }
+        ```
+
+        **Key Fields for Chaining**:
+        - `ready_to_commit` (bool): Use to determine if commit validation/preview should run
+        - `repository_path` (str): Pass to other repository analysis tools
+        - `total_staged_files` (int): Use for conditional workflow logic
+        - `staged_files` (list): Individual file information for targeted analysis
+        - `statistics` (dict): Change statistics for impact assessment
+
+        **Common Chaining Patterns**:
+        ```python
+        # Basic commit workflow
+        staged_result = await analyze_staged_changes(repo_path)
+        if staged_result["ready_to_commit"]:
+            validation = await validate_staged_changes(staged_result["repository_path"])
+            if validation["valid"]:
+                preview = await preview_commit(staged_result["repository_path"])
+
+        # Risk-based validation
+        if staged_result["total_staged_files"] > 5:
+            validation = await validate_staged_changes(staged_result["repository_path"])
+
+        # File-specific analysis
+        for file_info in staged_result["staged_files"]:
+            if file_info["total_changes"] > 100:
+                # Large change - needs review
+                pass
+        ```
+
+        **Decision Points**:
+        - `ready_to_commit=True`: Has staged changes → run commit validation/preview
+        - `ready_to_commit=False`: No staged changes → analyze working directory instead
+        - `total_staged_files > X`: Many files → trigger additional validation
+        - `statistics.total_additions > X`: Large additions → review for quality
         """
         start_time = time.time()
         await ctx.info(f"Starting staged changes analysis for: {repository_path}")
@@ -46,6 +93,7 @@ def register_staging_area_tools(mcp: FastMCP):
             await ctx.report_progress(1, 4)
             await ctx.debug("Detecting staged changes")
 
+            # Use existing StagedChanges model
             staged_changes = await mcp.change_detector.detect_staged_changes(repo)
 
             await ctx.report_progress(2, 4)
@@ -130,6 +178,55 @@ def register_staging_area_tools(mcp: FastMCP):
         """Preview what would be committed.
 
         Shows a summary of staged changes that would be included in the next commit.
+
+        **Return Type**: Dict with commit preview information
+        ```python
+        {
+            "repository_path": str,           # Path to analyzed repository
+            "ready_to_commit": bool,          # Whether there are staged changes to commit
+            "summary": {                      # Change statistics for commit description
+                "total_files": int, "total_additions": int, "total_deletions": int
+            },
+            "file_categories": {              # File categorization for commit organization
+                "critical_files": int, "source_code": int, "documentation": int,
+                "tests": int, "configuration": int, "other": int
+            },
+            "file_types": Dict[str, int],     # File extensions and counts
+            "files_by_status": {              # Files organized by git status
+                "added": List[str], "modified": List[str],
+                "deleted": List[str], "renamed": List[str]
+            },
+            "message": str | None             # Status message if no changes
+        }
+        ```
+
+        **Key Fields for Chaining**:
+        - `ready_to_commit` (bool): Whether commit can proceed
+        - `repository_path` (str): Pass to validation or push readiness tools
+        - `file_categories` (dict): Use for commit message generation or validation
+        - `summary.total_files` (int): Use for validation thresholds
+
+        **Common Chaining Patterns**:
+        ```python
+        # Commit workflow with validation
+        preview = await preview_commit(repo_path)
+        if preview["ready_to_commit"]:
+            if preview["file_categories"]["critical_files"] > 0:
+                validation = await validate_staged_changes(preview["repository_path"])
+            elif preview["summary"]["total_files"] > 10:
+                validation = await validate_staged_changes(preview["repository_path"])
+
+        # Post-commit workflow
+        if preview["ready_to_commit"]:
+            # After commit would happen, check push readiness
+            push_check = await get_push_readiness(preview["repository_path"])
+        ```
+
+        **Decision Points**:
+        - `ready_to_commit=False`: No staged changes → analyze working directory
+        - `file_categories.critical_files > 0`: Critical files → require validation
+        - `summary.total_files > X`: Large commits → require additional review
+        - `ready_to_commit=True`: Can commit → check push readiness after commit
         """
         await ctx.info(f"Previewing commit for: {repository_path}")
 
@@ -157,7 +254,7 @@ def register_staging_area_tools(mcp: FastMCP):
                 }
 
             await ctx.debug("Categorizing staged changes")
-            # Categorize changes
+            # Categorize changes using existing analyzer
             categories = mcp.diff_analyzer.categorize_changes(staged_changes.staged_files)
 
             await ctx.debug("Analyzing file types")
@@ -168,8 +265,7 @@ def register_staging_area_tools(mcp: FastMCP):
                 file_types[ext] = file_types.get(ext, 0) + 1
 
             await ctx.info(
-                f"Commit preview ready: {staged_changes.total_staged} files, \
-                           {categories.total_files} categorized"
+                f"Commit preview ready: {staged_changes.total_staged} files, {categories.total_files} categorized"
             )
 
             return {
@@ -210,6 +306,55 @@ def register_staging_area_tools(mcp: FastMCP):
 
         Checks staged changes for potential problems like large files,
         critical file changes, or other issues before committing.
+
+        **Return Type**: Dict with validation results
+        ```python
+        {
+            "repository_path": str,           # Path to analyzed repository
+            "valid": bool,                    # Whether changes pass validation - use for commit decisions
+            "risk_level": str,                # "low"|"medium"|"high" - use for workflow routing
+            "risk_score": int,                # 0-10 numeric risk score
+            "warnings": List[str],            # Non-blocking issues for review
+            "errors": List[str],              # Blocking issues that prevent commit
+            "recommendations": List[str],     # Suggested actions for improvement
+            "summary": {                      # Validation statistics
+                "total_files": int, "high_risk_files": int,
+                "critical_files": int, "binary_files": int
+            }
+        }
+        ```
+
+        **Key Fields for Chaining**:
+        - `valid` (bool): Whether commit should proceed
+        - `risk_level` (str): Route to different validation workflows
+        - `errors` (list): Blocking issues that must be resolved
+        - `repository_path` (str): Pass to other tools for fixes
+
+        **Common Chaining Patterns**:
+        ```python
+        # Validation-based commit workflow
+        validation = await validate_staged_changes(repo_path)
+        if validation["valid"]:
+            if validation["risk_level"] == "low":
+                # Safe to commit, check push readiness
+                push_check = await get_push_readiness(validation["repository_path"])
+            else:
+                # Medium/high risk - get detailed analysis
+                summary = await get_outstanding_summary(validation["repository_path"], detailed=True)
+        else:
+            # Has errors - analyze working directory for fixes
+            wd_result = await analyze_working_directory(validation["repository_path"])
+
+        # Risk-based routing
+        if validation["risk_level"] == "high":
+            health_check = await analyze_repository_health(validation["repository_path"])
+        ```
+
+        **Decision Points**:
+        - `valid=True`: Validation passed → proceed with commit or push checks
+        - `valid=False`: Has blocking errors → fix issues before committing
+        - `risk_level="high"`: High risk → require additional review/analysis
+        - `errors`: Specific blocking issues that need resolution
         """
         start_time = time.time()
         await ctx.info(f"Starting staged changes validation for: {repository_path}")
@@ -234,7 +379,7 @@ def register_staging_area_tools(mcp: FastMCP):
                 return {"repository_path": str(repo_path), "valid": False, "message": "No changes staged for commit"}
 
             await ctx.debug("Performing risk assessment")
-            # Perform validation
+            # Perform validation using existing risk assessment
             risk_assessment = mcp.diff_analyzer.assess_risk(staged_changes.staged_files)
 
             await ctx.debug("Categorizing changes for validation")
@@ -277,6 +422,20 @@ def register_staging_area_tools(mcp: FastMCP):
             # Overall validation result
             is_valid = len(errors) == 0
 
+            # Generate recommendations
+            recommendations = []
+            if risk_assessment.large_changes:
+                recommendations.append("Review large changes carefully before committing")
+            if categories.has_critical_changes:
+                recommendations.append("Double-check critical file changes")
+            if staged_changes.total_staged > 10:
+                recommendations.append("Consider splitting large commits into smaller ones")
+            if len(categories.source_code) > 0 and len(categories.tests) == 0:
+                recommendations.append("Add tests for new functionality")
+
+            # Remove None values
+            recommendations = [r for r in recommendations if r]
+
             duration = time.time() - start_time
             await ctx.info(f"Validation completed in {duration:.2f} seconds - {'VALID' if is_valid else 'INVALID'}")
 
@@ -287,12 +446,7 @@ def register_staging_area_tools(mcp: FastMCP):
                 "risk_score": risk_assessment.risk_score,
                 "warnings": warnings,
                 "errors": errors,
-                "recommendations": [
-                    "Review large changes carefully before committing" if risk_assessment.large_changes else None,
-                    "Double-check critical file changes" if categories.has_critical_changes else None,
-                    "Consider splitting large commits into smaller ones" if staged_changes.total_staged > 10 else None,
-                    "Add tests for new functionality" if categories.source_code and not categories.tests else None,
-                ],
+                "recommendations": recommendations,
                 "summary": {
                     "total_files": staged_changes.total_staged,
                     "high_risk_files": len(risk_assessment.large_changes),

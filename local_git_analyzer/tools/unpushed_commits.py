@@ -1,4 +1,4 @@
-"""FastMCP tools for unpushed commits analysis."""
+"""FastMCP tools for unpushed commits analysis with enhanced return types."""
 
 import time
 from pathlib import Path
@@ -7,8 +7,8 @@ from typing import Any
 from fastmcp import Context, FastMCP
 from pydantic import Field
 
-from ..models.repository import LocalRepository
-from ..utils import find_git_root, is_git_repository
+from local_git_analyzer.models.repository import LocalRepository
+from local_git_analyzer.utils import find_git_root, is_git_repository
 
 
 def register_unpushed_commits_tools(mcp: FastMCP):
@@ -25,6 +25,61 @@ def register_unpushed_commits_tools(mcp: FastMCP):
 
         Returns detailed information about local commits that exist locally
         but haven't been pushed to the remote repository.
+
+        **Return Type**: Dict with unpushed commits information
+        ```python
+        {
+            "repository_path": str,           # Pass to other repository tools
+            "branch": str,                    # Branch that was analyzed
+            "upstream_branch": str | None,    # Upstream branch reference
+            "total_unpushed_commits": int,    # Total unpushed commits - use for push decisions
+            "commits_analyzed": int,          # Number included in results (limited by max_commits)
+            "summary": {                      # Commit statistics for analysis
+                "total_insertions": int, "total_deletions": int, "total_changes": int,
+                "unique_authors": int, "authors": List[str]
+            },
+            "commits": List[{                 # Individual commit information
+                "sha": str, "short_sha": str, "message": str, "short_message": str,
+                "author": str, "author_email": str, "date": str,
+                "insertions": int, "deletions": int, "total_changes": int,
+                "files_changed": List[str]
+            }]
+        }
+        ```
+
+        **Key Fields for Chaining**:
+        - `total_unpushed_commits` (int): Use to determine if push is needed (>0 means unpushed work)
+        - `repository_path` (str): Pass to push readiness or remote comparison tools
+        - `branch` (str): Current branch for branch-specific operations
+        - `commits` (list): Individual commit data for detailed analysis
+        - `summary.unique_authors` (int): Use for collaboration analysis
+
+        **Common Chaining Patterns**:
+        ```python
+        # Basic push workflow
+        unpushed_result = await analyze_unpushed_commits(repo_path)
+        if unpushed_result["total_unpushed_commits"] > 0:
+            push_check = await get_push_readiness(unpushed_result["repository_path"])
+            if push_check["ready_to_push"]:
+                remote_compare = await compare_with_remote("origin", unpushed_result["repository_path"])
+
+        # Collaboration analysis
+        if unpushed_result["summary"]["unique_authors"] > 1:
+            # Multiple authors - check for conflicts before push
+            conflicts = await detect_conflicts(unpushed_result["repository_path"])
+
+        # Commit quality analysis
+        for commit in unpushed_result["commits"]:
+            if commit["total_changes"] > 500:
+                # Large commit - might need splitting for PR
+                pass
+        ```
+
+        **Decision Points**:
+        - `total_unpushed_commits > 0`: Has unpushed work → check push readiness
+        - `total_unpushed_commits == 0`: No unpushed work → focus on local changes
+        - `total_unpushed_commits > 10`: Many commits → consider squashing/organizing
+        - `summary.unique_authors > 1`: Multiple authors → check for collaboration issues
         """
         start_time = time.time()
         await ctx.info(f"Starting unpushed commits analysis for: {repository_path}")
@@ -58,7 +113,8 @@ def register_unpushed_commits_tools(mcp: FastMCP):
             await ctx.report_progress(2, 5)
             await ctx.debug("Detecting unpushed commits")
 
-            unpushed_commits = await mcp.change_detector.detect_unpushed_commits(repo, ctx)
+            # Use existing UnpushedCommit model
+            unpushed_commits = await mcp.change_detector.detect_unpushed_commits(repo)
 
             # Limit commits if requested
             original_count = len(unpushed_commits)
@@ -110,7 +166,7 @@ def register_unpushed_commits_tools(mcp: FastMCP):
                 "repository_path": str(repo_path),
                 "branch": current_branch,
                 "upstream_branch": branch_info.get("upstream"),
-                "total_unpushed_commits": len(unpushed_commits),
+                "total_unpushed_commits": original_count,  # Use original count, not limited
                 "commits_analyzed": len(commits_data),
                 "summary": {
                     "total_insertions": total_insertions,
@@ -137,6 +193,58 @@ def register_unpushed_commits_tools(mcp: FastMCP):
 
         Shows how many commits the local branch is ahead of or behind
         the remote branch, and provides sync status information.
+
+        **Return Type**: Dict with branch comparison information
+        ```python
+        {
+            "repository_path": str,           # Path to analyzed repository
+            "branch": str,                    # Current local branch
+            "remote": str,                    # Remote name (e.g., "origin")
+            "upstream_branch": str | None,    # Upstream branch reference
+            "sync_status": str,               # Human-readable sync status
+            "is_up_to_date": bool,            # Whether branch is synchronized
+            "ahead_by": int,                  # Commits ahead of remote
+            "behind_by": int,                 # Commits behind remote
+            "needs_push": bool,               # Whether push is needed
+            "needs_pull": bool,               # Whether pull is needed
+            "actions_needed": List[str],      # Required actions ("push", "pull")
+            "sync_priority": str,             # "none"|"low"|"medium"|"high" urgency
+            "recommendation": str             # Human-readable action recommendation
+        }
+        ```
+
+        **Key Fields for Chaining**:
+        - `needs_push` (bool): Whether push operation should be performed
+        - `needs_pull` (bool): Whether pull operation is needed first
+        - `sync_priority` (str): Urgency level for routing workflows
+        - `is_up_to_date` (bool): Whether any sync action is needed
+        - `ahead_by`/`behind_by` (int): Specific sync metrics for decisions
+
+        **Common Chaining Patterns**:
+        ```python
+        # Push workflow with sync check
+        remote_result = await compare_with_remote("origin", repo_path)
+        if remote_result["needs_pull"]:
+            # Must pull first - analyze potential conflicts
+            conflicts = await detect_conflicts(remote_result["repository_path"])
+        elif remote_result["needs_push"]:
+            # Can push - check readiness
+            push_check = await get_push_readiness(remote_result["repository_path"])
+
+        # Priority-based routing
+        if remote_result["sync_priority"] == "high":
+            # Urgent sync needed - get detailed analysis
+            summary = await get_outstanding_summary(remote_result["repository_path"])
+        elif remote_result["is_up_to_date"]:
+            # Already synced - focus on local work
+            wd_result = await analyze_working_directory(remote_result["repository_path"])
+        ```
+
+        **Decision Points**:
+        - `needs_pull=True`: Must pull before push → check for conflicts
+        - `needs_push=True`: Can push → verify push readiness
+        - `sync_priority="high"`: Urgent sync → prioritize sync operations
+        - `is_up_to_date=True`: Already synced → focus on local development
         """
         await ctx.info(f"Comparing local branch with remote '{remote_name}' for: {repository_path}")
 
@@ -161,6 +269,7 @@ def register_unpushed_commits_tools(mcp: FastMCP):
             )
 
             await ctx.debug("Getting branch status")
+            # Use existing BranchStatus model
             branch_status = await mcp.status_tracker.get_branch_status(repo)
 
             # Determine sync actions needed
@@ -177,8 +286,7 @@ def register_unpushed_commits_tools(mcp: FastMCP):
                 sync_priority = "high"  # Diverged
                 sync_recommendation = "Pull and merge/rebase, then push"
                 await ctx.warning(
-                    f"Branch has diverged: {branch_status.ahead_by} ahead, \
-                                  {branch_status.behind_by} behind"
+                    f"Branch has diverged: {branch_status.ahead_by} ahead, {branch_status.behind_by} behind"
                 )
             elif branch_status.ahead_by > 5:
                 sync_priority = "medium"  # Many commits ahead
@@ -231,6 +339,64 @@ def register_unpushed_commits_tools(mcp: FastMCP):
 
         Provides detailed analysis of recent commits with optional filtering
         by date, author, or other criteria.
+
+        **Return Type**: Dict with commit history analysis
+        ```python
+        {
+            "repository_path": str,           # Path to analyzed repository
+            "analysis_filters": {             # Applied filters for context
+                "since": str | None, "author": str | None, "max_commits": int
+            },
+            "total_commits_found": int,       # Total commits before filtering
+            "commits_analyzed": int,          # Commits included in analysis
+            "statistics": {                   # Aggregate commit statistics
+                "total_authors": int, "total_insertions": int, "total_deletions": int,
+                "average_changes_per_commit": float
+            },
+            "authors": Dict[str, {            # Per-author statistics
+                "commits": int, "insertions": int, "deletions": int
+            }],
+            "daily_activity": Dict[str, int], # Commits per day (YYYY-MM-DD format)
+            "message_patterns": {             # Commit message categorization
+                "fix": int, "feat": int, "docs": int, "test": int, "refactor": int, "other": int
+            },
+            "recent_commits": List[{          # Most recent commits summary
+                "sha": str, "message": str, "author": str, "date": str, "changes": int
+            }]
+        }
+        ```
+
+        **Key Fields for Chaining**:
+        - `commits_analyzed` (int): Number of commits for statistical validity
+        - `statistics.total_authors` (int): Use for collaboration analysis
+        - `authors` (dict): Per-author data for team analysis
+        - `message_patterns` (dict): Commit quality patterns for standards analysis
+        - `repository_path` (str): Pass to other analysis tools
+
+        **Common Chaining Patterns**:
+        ```python
+        # Team collaboration analysis
+        history_result = await analyze_commit_history(repo_path, max_commits=100)
+        if history_result["statistics"]["total_authors"] > 3:
+            # Multiple contributors - check for conflicts
+            conflicts = await detect_conflicts(history_result["repository_path"])
+
+        # Commit quality analysis
+        if history_result["message_patterns"]["other"] > history_result["commits_analyzed"] * 0.3:
+            # Poor commit message patterns - might need standards
+            health = await analyze_repository_health(history_result["repository_path"])
+
+        # Activity-based analysis
+        if history_result["commits_analyzed"] > 20:
+            # Active repository - analyze current state
+            summary = await get_outstanding_summary(history_result["repository_path"])
+        ```
+
+        **Decision Points**:
+        - `commits_analyzed > X`: Sufficient data for statistical analysis
+        - `statistics.total_authors > 1`: Multi-contributor project → check collaboration
+        - `message_patterns.other > 30%`: Poor commit messages → review standards
+        - `daily_activity`: Activity patterns for workflow optimization
         """
         start_time = time.time()
         await ctx.info(f"Starting commit history analysis for: {repository_path}")
@@ -254,7 +420,7 @@ def register_unpushed_commits_tools(mcp: FastMCP):
 
             await ctx.debug("Getting unpushed commits for analysis")
             # Get unpushed commits (this is our main commit source for now)
-            all_commits = await mcp.change_detector.detect_unpushed_commits(repo, ctx)
+            all_commits = await mcp.change_detector.detect_unpushed_commits(repo)
 
             await ctx.debug(f"Found {len(all_commits)} total commits, applying filters")
 
