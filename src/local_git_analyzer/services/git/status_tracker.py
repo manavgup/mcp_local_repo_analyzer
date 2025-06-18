@@ -2,10 +2,9 @@
 
 from typing import Any
 
-from ..models.analysis import BranchStatus, RepositoryStatus
-from ..models.repository import LocalRepository
-from .change_detector import ChangeDetector
-from .git_client import GitClient
+from mcp_shared_lib.models import BranchStatus, LocalRepository, RepositoryStatus
+from mcp_shared_lib.services import GitClient
+from local_git_analyzer.services.git import ChangeDetector
 
 
 class StatusTracker:

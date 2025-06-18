@@ -6,8 +6,8 @@ Tests all tools with focus on return type validation and chaining patterns.
 
 import asyncio
 import json
-import sys
 import os
+import sys
 from typing import Any, Dict
 
 from fastmcp import Client
@@ -22,7 +22,7 @@ class GitAnalyzerTestClient:
         self.client = None
         self.transport = None
         self.test_results = {}
-        
+
     async def __aenter__(self):
         """Async context manager entry."""
         self.transport = PythonStdioTransport(
@@ -41,28 +41,29 @@ class GitAnalyzerTestClient:
 
     def _extract_result_from_mcp_response(self, mcp_response: list) -> Dict[str, Any]:
         """Extract the actual result from FastMCP's TextContent wrapper.
-        
+
         FastMCP client returns a list of TextContent objects, where the first
         item contains the JSON-serialized tool result.
         """
         if not mcp_response or len(mcp_response) == 0:
             return {}
-            
+
         # Get the first TextContent object
         first_content = mcp_response[0]
-        
+
         # Extract the text content
-        if hasattr(first_content, 'text'):
+        if hasattr(first_content, "text"):
             text_content = first_content.text
-        elif isinstance(first_content, dict) and 'text' in first_content:
-            text_content = first_content['text']
+        elif isinstance(first_content, dict) and "text" in first_content:
+            text_content = first_content["text"]
         else:
             # Fallback - might be raw text
             text_content = str(first_content)
-        
+
         # Parse JSON if it looks like JSON
         try:
             import json
+
             return json.loads(text_content)
         except (json.JSONDecodeError, TypeError):
             # If not JSON, return as-is wrapped in a dict
@@ -77,15 +78,24 @@ class GitAnalyzerTestClient:
 
             tools = await self.client.list_tools()
             print(f"🔧 Available tools: {len(tools)}")
-            
+
             expected_tools = {
-                "analyze_working_directory", "get_file_diff", "get_untracked_files",
-                "analyze_staged_changes", "preview_commit", "validate_staged_changes", 
-                "analyze_unpushed_commits", "compare_with_remote", "analyze_commit_history",
-                "get_outstanding_summary", "analyze_repository_health", "get_push_readiness",
-                "analyze_stashed_changes", "detect_conflicts"
+                "analyze_working_directory",
+                "get_file_diff",
+                "get_untracked_files",
+                "analyze_staged_changes",
+                "preview_commit",
+                "validate_staged_changes",
+                "analyze_unpushed_commits",
+                "compare_with_remote",
+                "analyze_commit_history",
+                "get_outstanding_summary",
+                "analyze_repository_health",
+                "get_push_readiness",
+                "analyze_stashed_changes",
+                "detect_conflicts",
             }
-            
+
             available_tools = set()
             for tool in tools:
                 tool_name = tool.name if hasattr(tool, "name") else tool.get("name", "Unknown")
@@ -96,7 +106,7 @@ class GitAnalyzerTestClient:
             if missing_tools:
                 print(f"❌ Missing expected tools: {missing_tools}")
                 return False
-                
+
             print("✅ All expected tools available")
             return True
 
@@ -113,17 +123,16 @@ class GitAnalyzerTestClient:
         try:
             print("  🔍 Testing analyze_working_directory...")
             wd_raw_result = await self.client.call_tool(
-                "analyze_working_directory", 
-                {"repository_path": self.repo_path, "include_diffs": False}
+                "analyze_working_directory", {"repository_path": self.repo_path, "include_diffs": False}
             )
-            
+
             # Extract the actual result from FastMCP's TextContent wrapper
             wd_result = self._extract_result_from_mcp_response(wd_raw_result)
-            
+
             # Validate return type structure
             required_fields = ["repository_path", "total_files_changed", "has_changes", "summary", "files"]
             validation = self._validate_return_structure(wd_result, required_fields, "WorkingDirectory")
-            
+
             results["analyze_working_directory"] = {
                 "success": True,
                 "validation": validation,
@@ -131,18 +140,17 @@ class GitAnalyzerTestClient:
                 "chainable_fields": {
                     "has_changes": wd_result.get("has_changes"),
                     "repository_path": wd_result.get("repository_path"),
-                    "total_files_changed": wd_result.get("total_files_changed")
-                }
+                    "total_files_changed": wd_result.get("total_files_changed"),
+                },
             }
-            
+
             print(f"    ✅ Working directory: {wd_result.get('total_files_changed', 0)} files changed")
-            
+
             # Test chaining example if there are changes
             if wd_result.get("has_changes"):
                 print("    🔗 Testing chaining: has_changes=True → calling get_untracked_files")
                 untracked_raw_result = await self.client.call_tool(
-                    "get_untracked_files",
-                    {"repository_path": wd_result["repository_path"]}
+                    "get_untracked_files", {"repository_path": wd_result["repository_path"]}
                 )
                 untracked_result = self._extract_result_from_mcp_response(untracked_raw_result)
                 results["chained_untracked"] = untracked_result
@@ -156,26 +164,22 @@ class GitAnalyzerTestClient:
         if results.get("analyze_working_directory", {}).get("success"):
             wd_data = results["analyze_working_directory"]["data"]
             modified_files = wd_data.get("files", {}).get("modified", [])
-            
+
             if modified_files:
                 try:
                     print("  📄 Testing get_file_diff...")
                     first_file = modified_files[0]["path"]
                     diff_raw_result = await self.client.call_tool(
                         "get_file_diff",
-                        {
-                            "file_path": first_file,
-                            "repository_path": wd_data["repository_path"],
-                            "max_lines": 50
-                        }
+                        {"file_path": first_file, "repository_path": wd_data["repository_path"], "max_lines": 50},
                     )
-                    
+
                     diff_result = self._extract_result_from_mcp_response(diff_raw_result)
-                    
+
                     # Validate return structure
                     diff_fields = ["file_path", "has_changes", "is_binary", "statistics", "diff_content"]
                     validation = self._validate_return_structure(diff_result, diff_fields, "FileDiff")
-                    
+
                     results["get_file_diff"] = {
                         "success": True,
                         "validation": validation,
@@ -183,12 +187,14 @@ class GitAnalyzerTestClient:
                         "chainable_fields": {
                             "has_changes": diff_result.get("has_changes"),
                             "is_large_change": diff_result.get("is_large_change"),
-                            "is_binary": diff_result.get("is_binary")
-                        }
+                            "is_binary": diff_result.get("is_binary"),
+                        },
                     }
-                    
-                    print(f"    ✅ File diff: {first_file} - {diff_result.get('statistics', {}).get('total_changes', 0)} changes")
-                    
+
+                    print(
+                        f"    ✅ File diff: {first_file} - {diff_result.get('statistics', {}).get('total_changes', 0)} changes"
+                    )
+
                 except Exception as e:
                     results["get_file_diff"] = {"success": False, "error": str(e)}
                     print(f"    ❌ get_file_diff failed: {e}")
@@ -204,16 +210,15 @@ class GitAnalyzerTestClient:
         try:
             print("  🔍 Testing analyze_staged_changes...")
             staged_raw_result = await self.client.call_tool(
-                "analyze_staged_changes",
-                {"repository_path": self.repo_path, "include_diffs": False}
+                "analyze_staged_changes", {"repository_path": self.repo_path, "include_diffs": False}
             )
-            
+
             staged_result = self._extract_result_from_mcp_response(staged_raw_result)
-            
+
             # Validate return structure
             required_fields = ["repository_path", "total_staged_files", "ready_to_commit", "statistics", "staged_files"]
             validation = self._validate_return_structure(staged_result, required_fields, "StagedChanges")
-            
+
             results["analyze_staged_changes"] = {
                 "success": True,
                 "validation": validation,
@@ -221,29 +226,29 @@ class GitAnalyzerTestClient:
                 "chainable_fields": {
                     "ready_to_commit": staged_result.get("ready_to_commit"),
                     "total_staged_files": staged_result.get("total_staged_files"),
-                    "repository_path": staged_result.get("repository_path")
-                }
+                    "repository_path": staged_result.get("repository_path"),
+                },
             }
-            
+
             print(f"    ✅ Staged changes: {staged_result.get('total_staged_files', 0)} files staged")
 
             # Test chaining patterns
             if staged_result.get("ready_to_commit"):
                 print("    🔗 Testing chaining: ready_to_commit=True → calling preview_commit")
                 preview_raw_result = await self.client.call_tool(
-                    "preview_commit",
-                    {"repository_path": staged_result["repository_path"]}
+                    "preview_commit", {"repository_path": staged_result["repository_path"]}
                 )
                 preview_result = self._extract_result_from_mcp_response(preview_raw_result)
                 results["chained_preview"] = preview_result
-                print(f"    ✅ Chained preview: {preview_result.get('summary', {}).get('total_files', 0)} files to commit")
-                
+                print(
+                    f"    ✅ Chained preview: {preview_result.get('summary', {}).get('total_files', 0)} files to commit"
+                )
+
                 # Further chaining: preview → validation
                 if preview_result.get("ready_to_commit"):
                     print("    🔗 Testing chaining: preview → validate_staged_changes")
                     validation_raw_result = await self.client.call_tool(
-                        "validate_staged_changes",
-                        {"repository_path": preview_result["repository_path"]}
+                        "validate_staged_changes", {"repository_path": preview_result["repository_path"]}
                     )
                     validation_result = self._extract_result_from_mcp_response(validation_raw_result)
                     results["chained_validation"] = validation_result
@@ -264,16 +269,15 @@ class GitAnalyzerTestClient:
         try:
             print("  🔍 Testing analyze_unpushed_commits...")
             unpushed_raw_result = await self.client.call_tool(
-                "analyze_unpushed_commits",
-                {"repository_path": self.repo_path, "max_commits": 10}
+                "analyze_unpushed_commits", {"repository_path": self.repo_path, "max_commits": 10}
             )
-            
+
             unpushed_result = self._extract_result_from_mcp_response(unpushed_raw_result)
-            
+
             # Validate return structure
             required_fields = ["repository_path", "branch", "total_unpushed_commits", "summary", "commits"]
             validation = self._validate_return_structure(unpushed_result, required_fields, "UnpushedCommits")
-            
+
             results["analyze_unpushed_commits"] = {
                 "success": True,
                 "validation": validation,
@@ -281,18 +285,17 @@ class GitAnalyzerTestClient:
                 "chainable_fields": {
                     "total_unpushed_commits": unpushed_result.get("total_unpushed_commits", 0),
                     "repository_path": unpushed_result.get("repository_path"),
-                    "branch": unpushed_result.get("branch")
-                }
+                    "branch": unpushed_result.get("branch"),
+                },
             }
-            
+
             print(f"    ✅ Unpushed commits: {unpushed_result.get('total_unpushed_commits', 0)} commits")
 
             # Test chaining: if there are unpushed commits, check push readiness
             if unpushed_result.get("total_unpushed_commits", 0) > 0:
                 print("    🔗 Testing chaining: unpushed_commits > 0 → get_push_readiness")
                 push_raw_result = await self.client.call_tool(
-                    "get_push_readiness",
-                    {"repository_path": unpushed_result["repository_path"]}
+                    "get_push_readiness", {"repository_path": unpushed_result["repository_path"]}
                 )
                 push_result = self._extract_result_from_mcp_response(push_raw_result)
                 results["chained_push_readiness"] = push_result
@@ -306,16 +309,15 @@ class GitAnalyzerTestClient:
         try:
             print("  🔍 Testing compare_with_remote...")
             remote_raw_result = await self.client.call_tool(
-                "compare_with_remote",
-                {"remote_name": "origin", "repository_path": self.repo_path}
+                "compare_with_remote", {"remote_name": "origin", "repository_path": self.repo_path}
             )
-            
+
             remote_result = self._extract_result_from_mcp_response(remote_raw_result)
-            
+
             # Validate return structure
             required_fields = ["repository_path", "branch", "sync_status", "needs_push", "needs_pull"]
             validation = self._validate_return_structure(remote_result, required_fields, "RemoteComparison")
-            
+
             results["compare_with_remote"] = {
                 "success": True,
                 "validation": validation,
@@ -323,10 +325,10 @@ class GitAnalyzerTestClient:
                 "chainable_fields": {
                     "needs_push": remote_result.get("needs_push"),
                     "needs_pull": remote_result.get("needs_pull"),
-                    "sync_priority": remote_result.get("sync_priority")
-                }
+                    "sync_priority": remote_result.get("sync_priority"),
+                },
             }
-            
+
             print(f"    ✅ Remote comparison: {remote_result.get('sync_status', 'unknown')}")
 
         except Exception as e:
@@ -344,19 +346,23 @@ class GitAnalyzerTestClient:
         try:
             print("  🔍 Testing get_outstanding_summary...")
             summary_raw_result = await self.client.call_tool(
-                "get_outstanding_summary",
-                {"repository_path": self.repo_path, "detailed": True}
+                "get_outstanding_summary", {"repository_path": self.repo_path, "detailed": True}
             )
-            
+
             summary_result = self._extract_result_from_mcp_response(summary_raw_result)
-            
+
             # Validate return structure - this is the most important tool
             required_fields = [
-                "repository_path", "has_outstanding_work", "total_outstanding_changes",
-                "quick_stats", "branch_status", "risk_assessment", "recommendations"
+                "repository_path",
+                "has_outstanding_work",
+                "total_outstanding_changes",
+                "quick_stats",
+                "branch_status",
+                "risk_assessment",
+                "recommendations",
             ]
             validation = self._validate_return_structure(summary_result, required_fields, "OutstandingSummary")
-            
+
             results["get_outstanding_summary"] = {
                 "success": True,
                 "validation": validation,
@@ -365,10 +371,10 @@ class GitAnalyzerTestClient:
                     "has_outstanding_work": summary_result.get("has_outstanding_work"),
                     "risk_level": summary_result.get("risk_assessment", {}).get("risk_level"),
                     "quick_stats": summary_result.get("quick_stats", {}),
-                    "branch_status": summary_result.get("branch_status", {})
-                }
+                    "branch_status": summary_result.get("branch_status", {}),
+                },
             }
-            
+
             print(f"    ✅ Outstanding summary: {'HAS WORK' if summary_result.get('has_outstanding_work') else 'CLEAN'}")
             print(f"    📊 Risk level: {summary_result.get('risk_assessment', {}).get('risk_level', 'unknown')}")
 
@@ -376,24 +382,23 @@ class GitAnalyzerTestClient:
             if summary_result.get("has_outstanding_work"):
                 risk_level = summary_result.get("risk_assessment", {}).get("risk_level")
                 quick_stats = summary_result.get("quick_stats", {})
-                
+
                 # High-risk workflow
                 if risk_level == "high":
                     print("    🔗 Testing orchestration: high risk → analyze_repository_health")
                     health_raw_result = await self.client.call_tool(
-                        "analyze_repository_health",
-                        {"repository_path": summary_result["repository_path"]}
+                        "analyze_repository_health", {"repository_path": summary_result["repository_path"]}
                     )
                     health_result = self._extract_result_from_mcp_response(health_raw_result)
                     results["orchestrated_health"] = health_result
                     print(f"    ✅ Health check: {health_result.get('health_status', 'unknown')}")
-                
+
                 # Working directory workflow
                 elif quick_stats.get("working_directory_changes", 0) > 0:
                     print("    🔗 Testing orchestration: working changes → analyze_working_directory")
                     wd_raw_result = await self.client.call_tool(
                         "analyze_working_directory",
-                        {"repository_path": summary_result["repository_path"], "include_diffs": False}
+                        {"repository_path": summary_result["repository_path"], "include_diffs": False},
                     )
                     wd_result = self._extract_result_from_mcp_response(wd_raw_result)
                     results["orchestrated_wd"] = wd_result
@@ -407,16 +412,15 @@ class GitAnalyzerTestClient:
         try:
             print("  🔍 Testing analyze_repository_health...")
             health_raw_result = await self.client.call_tool(
-                "analyze_repository_health",
-                {"repository_path": self.repo_path}
+                "analyze_repository_health", {"repository_path": self.repo_path}
             )
-            
+
             health_result = self._extract_result_from_mcp_response(health_raw_result)
-            
+
             # Validate return structure
             required_fields = ["repository_path", "health_score", "health_status", "issues", "recommendations"]
             validation = self._validate_return_structure(health_result, required_fields, "RepositoryHealth")
-            
+
             results["analyze_repository_health"] = {
                 "success": True,
                 "validation": validation,
@@ -424,11 +428,13 @@ class GitAnalyzerTestClient:
                 "chainable_fields": {
                     "health_score": health_result.get("health_score"),
                     "health_status": health_result.get("health_status"),
-                    "issues": health_result.get("issues", [])
-                }
+                    "issues": health_result.get("issues", []),
+                },
             }
-            
-            print(f"    ✅ Repository health: {health_result.get('health_status')} ({health_result.get('health_score')}/100)")
+
+            print(
+                f"    ✅ Repository health: {health_result.get('health_status')} ({health_result.get('health_score')}/100)"
+            )
 
         except Exception as e:
             results["analyze_repository_health"] = {"success": False, "error": str(e)}
@@ -445,90 +451,84 @@ class GitAnalyzerTestClient:
             # Start with the main orchestrator
             print("  1️⃣  Starting with get_outstanding_summary...")
             summary_raw = await self.client.call_tool(
-                "get_outstanding_summary",
-                {"repository_path": self.repo_path, "detailed": False}
+                "get_outstanding_summary", {"repository_path": self.repo_path, "detailed": False}
             )
-            
+
             summary = self._extract_result_from_mcp_response(summary_raw)
             results["step1_summary"] = summary
-            
+
             if summary.get("has_outstanding_work"):
                 print("  2️⃣  Has outstanding work - routing based on risk and type...")
-                
+
                 risk_level = summary.get("risk_assessment", {}).get("risk_level", "low")
                 quick_stats = summary.get("quick_stats", {})
-                
+
                 if risk_level == "high":
                     print("    🚨 High risk - comprehensive validation workflow")
-                    
+
                     # Validation workflow
                     validation_raw = await self.client.call_tool(
-                        "validate_staged_changes",
-                        {"repository_path": summary["repository_path"]}
+                        "validate_staged_changes", {"repository_path": summary["repository_path"]}
                     )
                     validation = self._extract_result_from_mcp_response(validation_raw)
                     results["step2_validation"] = validation
-                    
+
                     # Conflict detection
                     conflicts_raw = await self.client.call_tool(
-                        "detect_conflicts",
-                        {"repository_path": summary["repository_path"]}
+                        "detect_conflicts", {"repository_path": summary["repository_path"]}
                     )
                     conflicts = self._extract_result_from_mcp_response(conflicts_raw)
                     results["step3_conflicts"] = conflicts
-                    
+
                     print(f"    ✅ Validation: {'VALID' if validation.get('valid') else 'INVALID'}")
                     print(f"    ✅ Conflicts: {'DETECTED' if conflicts.get('has_potential_conflicts') else 'NONE'}")
-                
+
                 elif quick_stats.get("working_directory_changes", 0) > 0:
                     print("    📁 Working directory changes - analysis workflow")
-                    
+
                     # Working directory analysis
                     wd_raw = await self.client.call_tool(
                         "analyze_working_directory",
-                        {"repository_path": summary["repository_path"], "include_diffs": False}
+                        {"repository_path": summary["repository_path"], "include_diffs": False},
                     )
                     wd_result = self._extract_result_from_mcp_response(wd_raw)
                     results["step2_working_directory"] = wd_result
-                    
+
                     # If large changes, validate
                     if wd_result.get("total_files_changed", 0) > 5:
                         validation_raw = await self.client.call_tool(
-                            "validate_staged_changes",
-                            {"repository_path": summary["repository_path"]}
+                            "validate_staged_changes", {"repository_path": summary["repository_path"]}
                         )
                         validation = self._extract_result_from_mcp_response(validation_raw)
                         results["step3_validation"] = validation
                         print(f"    ✅ Large changes - validation: {'VALID' if validation.get('valid') else 'INVALID'}")
-                
+
                 elif quick_stats.get("unpushed_commits", 0) > 0:
                     print("    🚀 Unpushed commits - push workflow")
-                    
+
                     # Push readiness check
                     push_raw = await self.client.call_tool(
-                        "get_push_readiness",
-                        {"repository_path": summary["repository_path"]}
+                        "get_push_readiness", {"repository_path": summary["repository_path"]}
                     )
                     push_check = self._extract_result_from_mcp_response(push_raw)
                     results["step2_push_readiness"] = push_check
-                    
+
                     # If ready to push, check remote sync
                     if push_check.get("ready_to_push"):
                         remote_raw = await self.client.call_tool(
                             "compare_with_remote",
-                            {"remote_name": "origin", "repository_path": summary["repository_path"]}
+                            {"remote_name": "origin", "repository_path": summary["repository_path"]},
                         )
                         remote_compare = self._extract_result_from_mcp_response(remote_raw)
                         results["step3_remote_compare"] = remote_compare
                         print(f"    ✅ Push ready - remote sync: {remote_compare.get('sync_status', 'unknown')}")
                     else:
                         print(f"    ⏳ Not ready to push: {', '.join(push_check.get('blockers', []))}")
-            
+
             else:
                 print("  ✅ Repository is clean - checking overall health")
                 health_raw = await self.client.call_tool(
-                    "analyze_repository_health",
-                    {"repository_path": summary["repository_path"]}
+                    "analyze_repository_health", {"repository_path": summary["repository_path"]}
                 )
                 health = self._extract_result_from_mcp_response(health_raw)
                 results["step2_health"] = health
@@ -544,7 +544,9 @@ class GitAnalyzerTestClient:
 
         return results
 
-    def _validate_return_structure(self, result: Dict[str, Any], required_fields: list[str], tool_name: str) -> Dict[str, Any]:
+    def _validate_return_structure(
+        self, result: Dict[str, Any], required_fields: list[str], tool_name: str
+    ) -> Dict[str, Any]:
         """Validate that tool return structure matches documentation."""
         validation = {
             "tool_name": tool_name,
@@ -552,7 +554,7 @@ class GitAnalyzerTestClient:
             "required_fields_present": {},
             "missing_fields": [],
             "unexpected_fields": [],
-            "type_validation": {}
+            "type_validation": {},
         }
 
         if validation["has_error"]:
@@ -587,19 +589,19 @@ class GitAnalyzerTestClient:
             print(f"🧪 Testing specific tool: {tool_name}")
             raw_result = await self.client.call_tool(tool_name, kwargs)
             result = self._extract_result_from_mcp_response(raw_result)
-            
+
             print(f"✅ {tool_name} completed successfully")
             return {"success": True, "data": result}
-            
+
         except Exception as e:
             print(f"❌ {tool_name} failed: {e}")
             return {"success": False, "error": str(e)}
 
     def print_test_summary(self, all_results: Dict[str, Any]):
         """Print a comprehensive test summary."""
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("📊 COMPREHENSIVE TEST SUMMARY")
-        print("="*60)
+        print("=" * 60)
 
         total_tests = 0
         successful_tests = 0
@@ -608,26 +610,26 @@ class GitAnalyzerTestClient:
         for category, results in all_results.items():
             print(f"\n📁 {category.upper().replace('_', ' ')}")
             print("-" * 40)
-            
+
             if isinstance(results, dict):
                 for test_name, test_result in results.items():
                     total_tests += 1
-                    
+
                     if isinstance(test_result, dict):
                         if test_result.get("success", False):
                             successful_tests += 1
                             status = "✅ PASS"
-                            
+
                             # Check validation if available
                             if "validation" in test_result:
                                 validation = test_result["validation"]
                                 score = validation.get("validation_score", 0)
                                 validation_scores.append(score)
                                 status += f" (validation: {score:.1%})"
-                                
+
                                 if validation.get("missing_fields"):
                                     status += f" - Missing: {', '.join(validation['missing_fields'])}"
-                            
+
                             # Show chainable fields
                             if "chainable_fields" in test_result:
                                 chainable = test_result["chainable_fields"]
@@ -639,7 +641,7 @@ class GitAnalyzerTestClient:
                     else:
                         successful_tests += 1
                         status = "✅ PASS"
-                    
+
                     print(f"  {test_name}: {status}")
 
         # Overall statistics
@@ -650,7 +652,7 @@ class GitAnalyzerTestClient:
         print(f"Successful: {successful_tests}")
         print(f"Failed: {total_tests - successful_tests}")
         print(f"Success rate: {successful_tests/total_tests:.1%}" if total_tests > 0 else "Success rate: N/A")
-        
+
         if validation_scores:
             avg_validation = sum(validation_scores) / len(validation_scores)
             print(f"Average validation score: {avg_validation:.1%}")
@@ -664,10 +666,10 @@ class GitAnalyzerTestClient:
         else:
             failed_count = total_tests - successful_tests
             print(f"⚠️  {failed_count} test(s) failed. Review error messages above.")
-        
+
         if validation_scores and avg_validation < 0.9:
             print("📋 Some tools may be missing documented return fields.")
-        
+
         print("🔗 Test chaining patterns to ensure tools work together properly.")
 
     async def run_comprehensive_tests(self) -> Dict[str, Any]:
@@ -690,7 +692,7 @@ class GitAnalyzerTestClient:
         all_results["staging_area"] = await self.test_staging_tools()
         all_results["unpushed_commits"] = await self.test_unpushed_commits_tools()
         all_results["summary_tools"] = await self.test_summary_tools()
-        
+
         # Workflow chaining tests
         all_results["workflow_chaining"] = await self.test_workflow_chaining()
 
@@ -723,18 +725,18 @@ async def main():
             # Test specific tool
             kwargs = {"repository_path": args.repository_path}
             result = await test_client.test_specific_tool(args.tool, **kwargs)
-            
+
             print(f"\n📄 SPECIFIC TOOL TEST RESULT")
             print("=" * 40)
             print(json.dumps(result, indent=2, default=str))
-            
+
             sys.exit(0 if result["success"] else 1)
 
         elif args.workflow_only:
             # Test workflow chaining only
             print("🔗 Testing Workflow Chaining Only...")
             workflow_results = await test_client.test_workflow_chaining()
-            
+
             success = workflow_results.get("workflow_success", False)
             print(f"\n🎯 Workflow test: {'SUCCESS' if success else 'FAILED'}")
             sys.exit(0 if success else 1)
@@ -742,7 +744,7 @@ async def main():
         else:
             # Run comprehensive tests
             results = await test_client.run_comprehensive_tests()
-            
+
             # Determine overall success
             overall_success = True
             for category, category_results in results.items():

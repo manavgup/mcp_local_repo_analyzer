@@ -4,10 +4,15 @@ import logging
 from datetime import datetime
 
 from fastmcp.server.dependencies import get_context
-
-from ..models.changes import FileStatus, StagedChanges, StashedChanges, UnpushedCommit, WorkingDirectoryChanges
-from ..models.repository import LocalRepository
-from .git_client import GitClient
+from mcp_shared_lib.models import (
+    FileStatus,
+    LocalRepository,
+    StagedChanges,
+    StashedChanges,
+    UnpushedCommit,
+    WorkingDirectoryChanges,
+)
+from mcp_shared_lib.services import GitClient
 
 
 class ChangeDetector:

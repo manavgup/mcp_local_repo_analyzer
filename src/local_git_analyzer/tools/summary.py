@@ -6,11 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp import Context, FastMCP
+from mcp_shared_lib.models import ChangeCategorization, LocalRepository, RepositoryStatus, RiskAssessment
+from mcp_shared_lib.utils import find_git_root, is_git_repository
 from pydantic import Field
-
-from local_git_analyzer.models.analysis import ChangeCategorization, RepositoryStatus, RiskAssessment
-from local_git_analyzer.models.repository import LocalRepository
-from local_git_analyzer.utils import find_git_root, is_git_repository
 
 
 def register_summary_tools(mcp: FastMCP):

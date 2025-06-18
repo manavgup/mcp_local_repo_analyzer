@@ -13,9 +13,9 @@ import logging
 import sys
 
 from fastmcp import FastMCP
-
-from local_git_analyzer.config import settings
-from local_git_analyzer.services import ChangeDetector, DiffAnalyzer, GitClient, StatusTracker
+from mcp_shared_lib.config import settings
+from mcp_shared_lib.services import GitClient
+from local_git_analyzer.services.git import ChangeDetector, DiffAnalyzer, StatusTracker
 
 
 def setup_logging():

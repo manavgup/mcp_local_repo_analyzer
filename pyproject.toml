@@ -21,10 +21,11 @@ classifiers = [
     "Topic :: Software Development :: Version Control :: Git",
     "Topic :: Development Libraries :: Python Modules",
 ]
-packages = [{include = "local_git_analyzer"}]
+packages = [{ include = "local_git_analyzer", from = "src" }]
 
 [tool.poetry.dependencies]
 python = "^3.10,<4.0"
+mcp-shared-lib = {path = "../mcp_shared_lib", develop = true}
 fastmcp = "^2.6.1"
 pydantic = "^2.0.0"
 pydantic-settings = "^2.0.0"

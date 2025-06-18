@@ -5,10 +5,9 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp import Context, FastMCP
+from mcp_shared_lib.models import LocalRepository
+from mcp_shared_lib.utils import find_git_root, is_git_repository
 from pydantic import Field
-
-from local_git_analyzer.models.repository import LocalRepository
-from local_git_analyzer.utils import find_git_root, is_git_repository
 
 
 def register_unpushed_commits_tools(mcp: FastMCP):

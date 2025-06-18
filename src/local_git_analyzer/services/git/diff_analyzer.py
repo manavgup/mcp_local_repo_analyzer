@@ -3,10 +3,8 @@
 import re
 
 from fastmcp.server.dependencies import get_context
-
-from ..config import GitAnalyzerSettings
-from ..models.analysis import ChangeCategorization, RiskAssessment
-from ..models.changes import DiffHunk, FileDiff, FileStatus
+from mcp_shared_lib.config.git_analyzer import GitAnalyzerSettings
+from mcp_shared_lib.models import ChangeCategorization, DiffHunk, FileDiff, FileStatus, RiskAssessment
 
 
 class DiffAnalyzer:
