@@ -10,10 +10,14 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from local_git_analyzer.config import GitAnalyzerSettings
-from local_git_analyzer.models.changes import FileStatus, WorkingDirectoryChanges
-from local_git_analyzer.models.repository import LocalRepository
-from local_git_analyzer.services import ChangeDetector, DiffAnalyzer, GitClient, StatusTracker
+from mcp_shared_lib.config import GitAnalyzerSettings
+from mcp_shared_lib.models.git.changes import FileStatus, WorkingDirectoryChanges
+from mcp_shared_lib.models.git.repository import LocalRepository
+from mcp_shared_lib.services.git.git_client import GitClient
+
+from local_git_analyzer.services.git.change_detector import ChangeDetector
+from local_git_analyzer.services.git.diff_analyzer import DiffAnalyzer
+from local_git_analyzer.services.git.status_tracker import StatusTracker
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))

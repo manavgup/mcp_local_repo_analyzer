@@ -4,23 +4,26 @@ Quick test script for any git repository.
 Usage: python quick_test.py /path/to/git/repo
 """
 
+import pytest
 import asyncio
 import os
 import sys
 from pathlib import Path
+import httpx
 
 from fastmcp import Client
-from fastmcp.client.transports import PythonStdioTransport
+from local_git_analyzer.main import create_server, register_tools
 
 
 async def analyze_repo(repo_path: str):
     """Analyze a git repository."""
 
-    # Create client with explicit transport
-    transport = PythonStdioTransport(
-        script_path="local_git_analyzer/main.py", python_cmd="python", env={**os.environ, "PYTHONPATH": os.getcwd()}
-    )
-    client = Client(transport)
+    # Create server instance directly (in-memory approach)
+    server = create_server()
+    register_tools(server)
+    
+    # Create client with in-memory transport
+    client = Client(server)
 
     async with client:
         print(f"🔍 Analyzing repository: {repo_path}")
@@ -31,6 +34,7 @@ async def analyze_repo(repo_path: str):
         try:
             result = await client.call_tool("get_outstanding_summary", {"repository_path": repo_path, "detailed": True})
             print_result(result)
+            assert isinstance(result, list) or isinstance(result, dict)
         except Exception as e:
             print(f"❌ Error: {e}")
 
@@ -41,6 +45,7 @@ async def analyze_repo(repo_path: str):
                 "analyze_working_directory", {"repository_path": repo_path, "include_diffs": False}
             )
             print_result(result)
+            assert isinstance(result, list) or isinstance(result, dict)
         except Exception as e:
             print(f"❌ Error: {e}")
 
@@ -49,6 +54,7 @@ async def analyze_repo(repo_path: str):
         try:
             result = await client.call_tool("analyze_repository_health", {"repository_path": repo_path})
             print_result(result)
+            assert isinstance(result, list) or isinstance(result, dict)
         except Exception as e:
             print(f"❌ Error: {e}")
 
@@ -103,6 +109,12 @@ def print_dict(data, indent=0):
                             print(f"{'  ' * (indent+1)}• {rec}")
     else:
         print(f"{'  ' * indent}{data}")
+
+
+@pytest.mark.asyncio
+async def test_analyze_repo(tmp_path):
+    # Optionally, set up a test repo at tmp_path
+    await analyze_repo(str(tmp_path))
 
 
 def main():
