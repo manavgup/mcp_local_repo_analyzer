@@ -9,21 +9,15 @@ Main entry point for the local git changes analyzer server.
 Provides server setup, tool registration, and server execution.
 """
 
-import logging
 import sys
 
 from fastmcp import FastMCP
 from mcp_shared_lib.config import settings
 from mcp_shared_lib.services import GitClient
 from local_git_analyzer.services.git import ChangeDetector, DiffAnalyzer, StatusTracker
+from mcp_shared_lib.utils import logging_service
 
-
-def setup_logging():
-    """Setup logging configuration."""
-    logging.basicConfig(
-        level=getattr(logging, settings.log_level.upper()),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+logger = logging_service.get_logger(__name__)
 
 
 def create_server() -> FastMCP:
@@ -89,8 +83,6 @@ def register_tools(mcp: FastMCP):
 
 def main():
     """Main entry point."""
-    setup_logging()
-
     try:
         # Create server
         mcp = create_server()
@@ -102,9 +94,9 @@ def main():
         mcp.run()
 
     except KeyboardInterrupt:
-        logging.info("Server stopped by user")
+        logger.info("Server stopped by user")
     except Exception as e:
-        logging.error(f"Server error: {e}")
+        logger.error(f"Server error: {e}")
         sys.exit(1)
 
 

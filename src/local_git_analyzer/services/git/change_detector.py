@@ -1,6 +1,5 @@
 """Service for detecting different types of git changes."""
 
-import logging
 from datetime import datetime
 
 from fastmcp.server.dependencies import get_context
@@ -13,6 +12,7 @@ from mcp_shared_lib.models import (
     WorkingDirectoryChanges,
 )
 from mcp_shared_lib.services import GitClient
+from mcp_shared_lib.utils import logging_service
 
 
 class ChangeDetector:
@@ -20,7 +20,7 @@ class ChangeDetector:
 
     def __init__(self, git_client: GitClient):
         self.git_client = git_client
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging_service.get_logger(__name__)
 
     def _get_context(self):
         """Get FastMCP context if available."""
