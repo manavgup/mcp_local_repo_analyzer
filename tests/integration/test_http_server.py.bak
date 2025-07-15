@@ -1,10 +1,10 @@
-import pytest
 #!/usr/bin/env python3
 """
 Test client for HTTP-based git analyzer server.
 """
 
 import asyncio
+import pytest
 from fastmcp import Client
 
 

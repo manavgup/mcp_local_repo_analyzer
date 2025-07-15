@@ -14,7 +14,7 @@ import sys
 from fastmcp import FastMCP
 from mcp_shared_lib.config import settings
 from mcp_shared_lib.services import GitClient
-from local_git_analyzer.services.git import ChangeDetector, DiffAnalyzer, StatusTracker
+from mcp_local_repo_analyzer.services.git import ChangeDetector, DiffAnalyzer, StatusTracker
 from mcp_shared_lib.utils import logging_service
 
 logger = logging_service.get_logger(__name__)
@@ -69,10 +69,10 @@ def register_tools(mcp: FastMCP):
         mcp: FastMCP server instance.
     """
     # Import and register tool modules
-    from local_git_analyzer.tools.staging_area import register_staging_area_tools
-    from local_git_analyzer.tools.summary import register_summary_tools
-    from local_git_analyzer.tools.unpushed_commits import register_unpushed_commits_tools
-    from local_git_analyzer.tools.working_directory import register_working_directory_tools
+    from mcp_local_repo_analyzer.tools.staging_area import register_staging_area_tools
+    from mcp_local_repo_analyzer.tools.summary import register_summary_tools
+    from mcp_local_repo_analyzer.tools.unpushed_commits import register_unpushed_commits_tools
+    from mcp_local_repo_analyzer.tools.working_directory import register_working_directory_tools
 
     # Register all tool groups
     register_working_directory_tools(mcp)

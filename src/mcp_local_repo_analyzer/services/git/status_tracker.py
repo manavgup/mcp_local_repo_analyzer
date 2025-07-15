@@ -4,7 +4,7 @@ from typing import Any
 
 from mcp_shared_lib.models import BranchStatus, LocalRepository, RepositoryStatus
 from mcp_shared_lib.services import GitClient
-from local_git_analyzer.services.git import ChangeDetector
+from mcp_local_repo_analyzer.services.git import ChangeDetector
 
 
 class StatusTracker:

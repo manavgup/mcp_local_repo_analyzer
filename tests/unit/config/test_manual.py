@@ -1,17 +1,33 @@
-#!/usr/bin/env python3
 """
-Manual testing script for the Local Git Changes Analyzer.
-Creates test scenarios and verifies the server works correctly.
-"""
+Test module: manual
 
+Migrated to standardized test structure with shared fixtures.
+"""
 import asyncio
+import pytest
 import subprocess
 import tempfile
 from pathlib import Path
-import pytest
-
 from fastmcp import Client
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
 
+
+import sys
+print("=== DEBUG INFO ===")
+print("Python path in test:", sys.path)
+print("mcp_shared_lib paths:", [p for p in sys.path if 'mcp_shared_lib' in p])
+
+# Test the import within pytest
+try:
+    from mcp_shared_lib.config import settings
+    print("✅ Import successful in test environment")
+except ImportError as e:
+    print(f"❌ Import failed in test environment: {e}")
+    import traceback
+    traceback.print_exc()
+print("=== END DEBUG ===")
+
+# Import shared fixtures from mcp_shared_lib
 
 class GitTestRepo:
     """Helper class to create test git repositories."""
@@ -76,7 +92,7 @@ async def test_scenario_clean_repo():
         (test_repo.init().create_file("README.md", "# Test Repository").add("README.md").commit("Initial commit"))
 
         # Test the server
-        client = Client("src/local_git_analyzer/main.py")
+        client = Client("src/mcp_local_repo_analyzer/main.py")
         async with client:
             result = await client.call_tool("get_outstanding_summary", {"repository_path": str(test_repo.path)})
 
@@ -138,7 +154,7 @@ async def test_scenario_working_directory_changes():
         )
 
         # Test the server
-        client = Client("src/local_git_analyzer/main.py")
+        client = Client("src/mcp_local_repo_analyzer/main.py")
         async with client:
             result = await client.call_tool("analyze_working_directory", {"repository_path": str(test_repo.path)})
 
@@ -173,7 +189,7 @@ async def test_scenario_staged_changes():
         )
 
         # Test the server
-        client = Client("src/local_git_analyzer/main.py")
+        client = Client("src/mcp_local_repo_analyzer/main.py")
         async with client:
             result = await client.call_tool("analyze_staged_changes", {"repository_path": str(test_repo.path)})
 
@@ -215,7 +231,7 @@ async def test_scenario_mixed_changes():
         )
 
         # Test comprehensive analysis
-        client = Client("src/local_git_analyzer/main.py")
+        client = Client("src/mcp_local_repo_analyzer/main.py")
         async with client:
             result = await client.call_tool(
                 "get_outstanding_summary", {"repository_path": str(test_repo.path), "detailed": True}
@@ -246,7 +262,7 @@ async def test_error_handling():
     """Test error handling with invalid repository."""
     print("\n⚠️  Testing Scenario: Error Handling")
 
-    client = Client("src/local_git_analyzer/main.py")
+    client = Client("src/mcp_local_repo_analyzer/main.py")
     async with client:
         # Test with non-git directory
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -265,6 +281,7 @@ async def test_error_handling():
 
 
 @pytest.mark.skip(reason="Server startup test is flaky or not needed in CI")
+@pytest.mark.unit
 def test_server_startup():
     """Test that the server can start up correctly."""
     print("🔧 Testing server startup...")
@@ -272,7 +289,7 @@ def test_server_startup():
     try:
         # Try to start the server process briefly
         process = subprocess.Popen(
-            ["python", "src/local_git_analyzer/main.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            ["python", "src/mcp_local_repo_analyzer/main.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
 
         # Give it a moment to start

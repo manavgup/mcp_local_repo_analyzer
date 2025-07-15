@@ -14,7 +14,6 @@ from typing import Dict, Any, List
 from datetime import datetime, timedelta
 
 # Import shared fixtures from mcp_shared_lib
-from mcp_shared_lib.tests.conftest import *
 
 try:
     from git import Repo, GitCommandError

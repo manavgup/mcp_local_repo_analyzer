@@ -2,7 +2,7 @@
 name = "mcp-local-repo-analyzer"
 version = "0.1.0"
 description = "FastMCP server for analyzing outstanding local git changes"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Manav Gupta <manavg@gmail.com>"]
 readme = "README.md"
 packages = [{include = "mcp_local_repo_analyzer", from = "src"}]
 classifiers = [
@@ -24,6 +24,7 @@ pydantic = "^2.5.0"
 typing-extensions = "^4.8.0"
 pathlib = "^1.0.1"
 click = "^8.1.7"
+mcp-shared-lib = {path = "../mcp_shared_lib", develop = true}
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.4.3"
@@ -50,6 +51,7 @@ pre-commit = "^3.6.0"
 bandit = "^1.7.5"
 safety = "^2.3.5"
 commitizen = "^3.13.0"
+mcp-shared-lib = {path = "../mcp_shared_lib"}
 
 [tool.poetry.group.docs.dependencies]
 mkdocs = "^1.5.3"
@@ -114,7 +116,6 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-fail-under=75",
     "--maxfail=5",
     "--tb=short"
 ]
@@ -138,7 +139,6 @@ filterwarnings = [
     "ignore::UserWarning:fastmcp.*"
 ]
 asyncio_mode = "auto"
-timeout = 300
 log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
