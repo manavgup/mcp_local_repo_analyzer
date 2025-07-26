@@ -93,7 +93,7 @@ def register_staging_area_tools(mcp: FastMCP):
             await ctx.debug("Detecting staged changes")
 
             # Use existing StagedChanges model
-            staged_changes = await mcp.change_detector.detect_staged_changes(repo)
+            staged_changes = await mcp.change_detector.detect_staged_changes(repo, ctx)
 
             await ctx.report_progress(2, 4)
             await ctx.info(f"Found {staged_changes.total_staged} staged files")
@@ -142,7 +142,7 @@ def register_staging_area_tools(mcp: FastMCP):
                             continue
 
                         await ctx.debug(f"Getting staged diff for: {file_status.path}")
-                        diff_content = await mcp.git_client.get_diff(repo_path, staged=True, file_path=file_status.path)
+                        diff_content = await mcp.git_client.get_diff(repo_path, staged=True, file_path=file_status.path, ctx=ctx)
 
                         # Truncate long diffs
                         lines = diff_content.split("\n")
@@ -242,7 +242,7 @@ def register_staging_area_tools(mcp: FastMCP):
             repo = LocalRepository(path=repo_path, name=repo_path.name, current_branch="main", head_commit="unknown")
 
             await ctx.debug("Detecting staged changes")
-            staged_changes = await mcp.change_detector.detect_staged_changes(repo)
+            staged_changes = await mcp.change_detector.detect_staged_changes(repo, ctx)
 
             if not staged_changes.ready_to_commit:
                 await ctx.info("No changes staged for commit")
@@ -371,7 +371,7 @@ def register_staging_area_tools(mcp: FastMCP):
             repo = LocalRepository(path=repo_path, name=repo_path.name, current_branch="main", head_commit="unknown")
 
             await ctx.debug("Detecting staged changes")
-            staged_changes = await mcp.change_detector.detect_staged_changes(repo)
+            staged_changes = await mcp.change_detector.detect_staged_changes(repo, ctx)
 
             if not staged_changes.ready_to_commit:
                 await ctx.info("No changes staged for commit - validation not applicable")

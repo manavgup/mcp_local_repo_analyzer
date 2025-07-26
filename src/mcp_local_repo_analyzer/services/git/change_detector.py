@@ -1,8 +1,8 @@
 """Service for detecting different types of git changes."""
 
 from datetime import datetime
+from typing import TYPE_CHECKING, Optional
 
-from fastmcp.server.dependencies import get_context
 from mcp_shared_lib.models import (
     FileStatus,
     LocalRepository,
@@ -14,6 +14,9 @@ from mcp_shared_lib.models import (
 from mcp_shared_lib.services import GitClient
 from mcp_shared_lib.utils import logging_service
 
+if TYPE_CHECKING:
+    from fastmcp import Context
+
 
 class ChangeDetector:
     """Service for detecting different types of git changes."""
@@ -22,23 +25,15 @@ class ChangeDetector:
         self.git_client = git_client
         self.logger = logging_service.get_logger(__name__)
 
-    def _get_context(self):
-        """Get FastMCP context if available."""
-        try:
-            return get_context()
-        except RuntimeError:
-            # No context available (e.g., during testing)
-            return None
-
-    async def detect_working_directory_changes(self, repo: LocalRepository) -> WorkingDirectoryChanges:
+    async def detect_working_directory_changes(
+        self, repo: LocalRepository, ctx: Optional["Context"] = None
+    ) -> WorkingDirectoryChanges:
         """Detect uncommitted changes in working directory."""
-        ctx = self._get_context()
-
         if ctx:
             await ctx.debug("Detecting working directory changes")
 
         try:
-            status_info = await self.git_client.get_status(repo.path)
+            status_info = await self.git_client.get_status(repo.path, ctx)
 
             # Initialize lists for different types of changes
             modified_files = []
@@ -107,15 +102,13 @@ class ChangeDetector:
                 await ctx.error(f"Failed to detect working directory changes: {str(e)}")
             raise
 
-    async def detect_staged_changes(self, repo: LocalRepository) -> StagedChanges:
+    async def detect_staged_changes(self, repo: LocalRepository, ctx: Optional["Context"] = None) -> StagedChanges:
         """Detect changes staged for commit."""
-        ctx = self._get_context()
-
         if ctx:
             await ctx.debug("Detecting staged changes")
 
         try:
-            status_info = await self.git_client.get_status(repo.path)
+            status_info = await self.git_client.get_status(repo.path, ctx)
 
             staged_files = []
 
@@ -161,15 +154,15 @@ class ChangeDetector:
                 await ctx.error(f"Failed to detect staged changes: {str(e)}")
             raise
 
-    async def detect_unpushed_commits(self, repo: LocalRepository) -> list[UnpushedCommit]:
+    async def detect_unpushed_commits(
+        self, repo: LocalRepository, ctx: Optional["Context"] = None
+    ) -> list[UnpushedCommit]:
         """Detect commits that haven't been pushed to remote."""
-        ctx = self._get_context()
-
         if ctx:
             await ctx.debug("Detecting unpushed commits")
 
         try:
-            commits_data = await self.git_client.get_unpushed_commits(repo.path)
+            commits_data = await self.git_client.get_unpushed_commits(repo.path, ctx=ctx)
 
             unpushed_commits = []
 
@@ -230,15 +223,13 @@ class ChangeDetector:
                 await ctx.error(f"Failed to detect unpushed commits: {str(e)}")
             raise
 
-    async def detect_stashed_changes(self, repo: LocalRepository) -> list[StashedChanges]:
+    async def detect_stashed_changes(self, repo: LocalRepository, ctx: Optional["Context"] = None) -> list[StashedChanges]:
         """Detect stashed changes."""
-        ctx = self._get_context()
-
         if ctx:
             await ctx.debug("Detecting stashed changes")
 
         try:
-            stashes_data = await self.git_client.get_stash_list(repo.path)
+            stashes_data = await self.git_client.get_stash_list(repo.path, ctx)
 
             stashed_changes = []
 

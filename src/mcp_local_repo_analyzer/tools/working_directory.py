@@ -103,7 +103,7 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.debug("Detecting working directory changes")
 
             # Detect working directory changes - returns WorkingDirectoryChanges model
-            changes = await mcp.change_detector.detect_working_directory_changes(repo)
+            changes = await mcp.change_detector.detect_working_directory_changes(repo, ctx)
 
             await ctx.report_progress(2, 4)
             await ctx.info(f"Found {changes.total_files} changed files")
@@ -217,7 +217,7 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.debug(f"Executing git diff command for {file_path}")
 
             # Get diff from git
-            diff_content = await mcp.git_client.get_diff(repo_path, staged=staged, file_path=file_path)
+            diff_content = await mcp.git_client.get_diff(repo_path, staged=staged, file_path=file_path, ctx=ctx)
 
             if not diff_content.strip():
                 await ctx.debug(f"No changes found for file: {file_path}")
@@ -326,7 +326,7 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             repo = LocalRepository(path=repo_path, name=repo_path.name, current_branch="main", head_commit="unknown")
 
             await ctx.debug("Detecting working directory changes to find untracked files")
-            changes = await mcp.change_detector.detect_working_directory_changes(repo)
+            changes = await mcp.change_detector.detect_working_directory_changes(repo, ctx)
 
             untracked_files = [_format_file_status(f) for f in changes.untracked_files]
 
@@ -378,7 +378,7 @@ async def _get_file_diffs(
 
             await ctx.debug(f"Getting diff for file: {file_status.path}")
             diff_content = await mcp.git_client.get_diff(
-                repo_path, staged=file_status.staged, file_path=file_status.path
+                repo_path, staged=file_status.staged, file_path=file_status.path, ctx=ctx
             )
 
             if diff_content.strip():

@@ -19,7 +19,14 @@ async def analyze_repo(repo_path: str):
     """Analyze a git repository."""
 
     # Create server instance directly (in-memory approach)
-    server = create_server()
+    server, services = create_server()
+    
+    # Store services in the server context for tools to access
+    server.git_client = services['git_client']
+    server.change_detector = services['change_detector']
+    server.diff_analyzer = services['diff_analyzer']
+    server.status_tracker = services['status_tracker']
+    
     register_tools(server)
     
     # Create client with in-memory transport

@@ -97,7 +97,7 @@ def register_unpushed_commits_tools(mcp: FastMCP):
             await ctx.debug("Getting branch information")
 
             # Get branch info first
-            branch_info = await mcp.git_client.get_branch_info(repo_path)
+            branch_info = await mcp.git_client.get_branch_info(repo_path, ctx)
             current_branch = branch or branch_info.get("current_branch", "main")
 
             await ctx.info(f"Analyzing branch: {current_branch}")
@@ -113,7 +113,7 @@ def register_unpushed_commits_tools(mcp: FastMCP):
             await ctx.debug("Detecting unpushed commits")
 
             # Use existing UnpushedCommit model
-            unpushed_commits = await mcp.change_detector.detect_unpushed_commits(repo)
+            unpushed_commits = await mcp.change_detector.detect_unpushed_commits(repo, ctx)
 
             # Limit commits if requested
             original_count = len(unpushed_commits)
@@ -257,7 +257,7 @@ def register_unpushed_commits_tools(mcp: FastMCP):
 
         try:
             await ctx.debug("Getting branch information")
-            branch_info = await mcp.git_client.get_branch_info(repo_path)
+            branch_info = await mcp.git_client.get_branch_info(repo_path, ctx)
 
             await ctx.debug("Creating repository model")
             repo = LocalRepository(
@@ -269,7 +269,7 @@ def register_unpushed_commits_tools(mcp: FastMCP):
 
             await ctx.debug("Getting branch status")
             # Use existing BranchStatus model
-            branch_status = await mcp.status_tracker.get_branch_status(repo)
+            branch_status = await mcp.status_tracker.get_branch_status(repo, ctx)
 
             # Determine sync actions needed
             actions_needed = []
@@ -419,7 +419,7 @@ def register_unpushed_commits_tools(mcp: FastMCP):
 
             await ctx.debug("Getting unpushed commits for analysis")
             # Get unpushed commits (this is our main commit source for now)
-            all_commits = await mcp.change_detector.detect_unpushed_commits(repo)
+            all_commits = await mcp.change_detector.detect_unpushed_commits(repo, ctx)
 
             await ctx.debug(f"Found {len(all_commits)} total commits, applying filters")
 

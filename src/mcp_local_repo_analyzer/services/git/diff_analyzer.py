@@ -5,6 +5,9 @@ import re
 from fastmcp.server.dependencies import get_context
 from mcp_shared_lib.config.git_analyzer import GitAnalyzerSettings
 from mcp_shared_lib.models import ChangeCategorization, DiffHunk, FileDiff, FileStatus, RiskAssessment
+from mcp_shared_lib.utils.logging_utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class DiffAnalyzer:
@@ -23,25 +26,17 @@ class DiffAnalyzer:
 
     def _log_if_context(self, level: str, message: str):
         """Log message if context is available."""
-        ctx = self._get_context()
-        if ctx:
-            # Since we're in a sync method but need async logging,
-            # we'll create a task if we're in an async context
-            import asyncio
+        # Try to get context for additional info, but don't await
+        try:
+            ctx = get_context()
+            # Add context info to message but use sync logger
+            message = f"[FastMCP] {message}"
+        except RuntimeError:
+            # No context available
+            pass
 
-            try:
-                loop = asyncio.get_running_loop()
-                if level == "debug":
-                    loop.create_task(ctx.debug(message))
-                elif level == "info":
-                    loop.create_task(ctx.info(message))
-                elif level == "warning":
-                    loop.create_task(ctx.warning(message))
-                elif level == "error":
-                    loop.create_task(ctx.error(message))
-            except RuntimeError:
-                # No event loop running, skip logging
-                pass
+        # Use regular logger (sync, safe)
+        getattr(logger, level.lower())(message)
 
     def parse_diff(self, diff_content: str) -> list[FileDiff]:
         """Parse diff content into FileDiff objects."""

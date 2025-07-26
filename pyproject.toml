@@ -18,13 +18,16 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
-fastmcp = "^2.6.1"
+fastmcp = "^2.10.6"
 gitpython = "^3.1.40"
 pydantic = "^2.5.0"
 typing-extensions = "^4.8.0"
 pathlib = "^1.0.1"
 click = "^8.1.7"
 mcp-shared-lib = {path = "../mcp_shared_lib", develop = true}
+fastapi = "^0.116.1"
+sse-starlette = "^2.4.1"
+uvicorn = "^0.35.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.4.3"

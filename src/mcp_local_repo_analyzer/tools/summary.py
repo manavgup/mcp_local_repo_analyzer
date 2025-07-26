@@ -114,7 +114,7 @@ def register_summary_tools(mcp: FastMCP):
             await ctx.debug("Getting branch information")
 
             # Get branch info
-            branch_info = await mcp.git_client.get_branch_info(repo_path)
+            branch_info = await mcp.git_client.get_branch_info(repo_path, ctx)
 
             await ctx.report_progress(1, 6)
             await ctx.debug("Creating repository model")
@@ -130,7 +130,7 @@ def register_summary_tools(mcp: FastMCP):
             await ctx.info("Analyzing all repository components...")
 
             # Get complete repository status using existing RepositoryStatus model
-            repo_status = await mcp.status_tracker.get_repository_status(repo)
+            repo_status = await mcp.status_tracker.get_repository_status(repo, ctx)
 
             await ctx.report_progress(3, 6)
             await ctx.debug("Categorizing and analyzing file changes")
@@ -313,7 +313,7 @@ def register_summary_tools(mcp: FastMCP):
             repo = LocalRepository(path=repo_path, name=repo_path.name, current_branch="main", head_commit="unknown")
 
             await ctx.debug("Gathering health metrics")
-            health_metrics = await mcp.status_tracker.get_health_metrics(repo)
+            health_metrics = await mcp.status_tracker.get_health_metrics(repo, ctx)
 
             await ctx.debug("Calculating health score")
             # Determine overall health score (0-100)
@@ -453,7 +453,7 @@ def register_summary_tools(mcp: FastMCP):
 
         try:
             await ctx.debug("Getting branch information")
-            branch_info = await mcp.git_client.get_branch_info(repo_path)
+            branch_info = await mcp.git_client.get_branch_info(repo_path, ctx)
 
             await ctx.debug("Creating repository model")
             repo = LocalRepository(
@@ -464,7 +464,7 @@ def register_summary_tools(mcp: FastMCP):
             )
 
             await ctx.debug("Getting repository status for push readiness check")
-            repo_status = await mcp.status_tracker.get_repository_status(repo)
+            repo_status = await mcp.status_tracker.get_repository_status(repo, ctx)
 
             await ctx.debug("Checking push readiness criteria")
             # Check readiness criteria
@@ -611,7 +611,7 @@ def register_summary_tools(mcp: FastMCP):
             repo = LocalRepository(path=repo_path, name=repo_path.name, current_branch="main", head_commit="unknown")
 
             await ctx.debug("Detecting stashed changes")
-            stashed_changes = await mcp.change_detector.detect_stashed_changes(repo)
+            stashed_changes = await mcp.change_detector.detect_stashed_changes(repo, ctx)
 
             if not stashed_changes:
                 await ctx.info("No stashed changes found")
@@ -720,7 +720,7 @@ def register_summary_tools(mcp: FastMCP):
 
         try:
             await ctx.debug("Getting branch information")
-            branch_info = await mcp.git_client.get_branch_info(repo_path)
+            branch_info = await mcp.git_client.get_branch_info(repo_path, ctx)
             current_branch = branch_info.get("current_branch", "main")
 
             if current_branch == target_branch:
@@ -740,8 +740,8 @@ def register_summary_tools(mcp: FastMCP):
 
             await ctx.debug("Getting working directory and staged changes")
             # Get working directory and staged changes
-            working_changes = await mcp.change_detector.detect_working_directory_changes(repo)
-            staged_changes = await mcp.change_detector.detect_staged_changes(repo)
+            working_changes = await mcp.change_detector.detect_working_directory_changes(repo, ctx)
+            staged_changes = await mcp.change_detector.detect_staged_changes(repo, ctx)
 
             await ctx.debug("Analyzing potential conflicts")
             # Simple conflict detection based on file changes
