@@ -28,14 +28,15 @@ class ChangeDetector:
     async def detect_working_directory_changes(
         self, repo: LocalRepository, ctx: Optional["Context"] = None
     ) -> WorkingDirectoryChanges:
-        """Detect uncommitted changes in working directory."""
+        """Detect uncommitted changes in working directory (changes NOT YET staged)."""
         if ctx:
-            await ctx.debug("Detecting working directory changes")
+            await ctx.debug("Detecting working directory changes (unstaged only)")
 
         try:
             status_info = await self.git_client.get_status(repo.path, ctx)
+            if ctx:
+                await ctx.debug(f"Raw git status info: {status_info}")
 
-            # Initialize lists for different types of changes
             modified_files = []
             added_files = []
             deleted_files = []
@@ -43,36 +44,96 @@ class ChangeDetector:
             untracked_files = []
 
             if ctx:
-                await ctx.debug(f"Processing {len(status_info['files'])} file status entries")
+                await ctx.debug(f"Processing {len(status_info['files'])} file status entries for WD changes")
 
             for file_info in status_info["files"]:
-                # Create FileStatus object
-                index_status = file_info.get("index_status")
-                status_code = file_info["status_code"]
+                index_status = file_info.get("index_status") # Left-hand side of status output (staged)
+                working_status = file_info.get("working_status") # Right-hand side of status output (unstaged)
+                status_code = file_info["status_code"] # Combined status code
 
-                # A file is staged only if it has index_status AND is not untracked
-                is_staged = bool(index_status) and status_code != "?"
-
-                file_status = FileStatus(
-                    path=file_info["filename"],
-                    status_code=file_info["status_code"],
-                    working_tree_status=file_info.get("working_status"),
-                    index_status=file_info.get("index_status"),
-                    staged=is_staged,
-                )
-
-                # Categorize by status code
-                if file_status.status_code == "M":
-                    modified_files.append(file_status)
-                elif file_status.status_code == "A":
-                    added_files.append(file_status)
-                elif file_status.status_code == "D":
-                    deleted_files.append(file_status)
-                elif file_status.status_code == "R":
-                    renamed_files.append(file_status)
-                elif file_status.status_code == "?":
+                # A file is an unstaged working directory change if:
+                # 1. It has a 'working_status' (right-hand side of git status)
+                # 2. It is NOT already entirely staged (index_status is empty or '?', meaning not yet added to index)
+                #    OR, if it is staged, but it also has further unstaged modifications (e.g., 'MM' status)
+                
+                # Let's simplify: an unstaged change is indicated by a non-empty working_status (right column)
+                # AND not being an untracked file, OR if it's untracked.
+                
+                # Handle untracked files explicitly first, as they are always unstaged
+                if status_code == "?":
+                    # Untracked files have no index_status or working_status beyond '?'
+                    file_status = FileStatus(
+                        path=file_info["filename"],
+                        status_code="?",
+                        working_tree_status="?",
+                        index_status=None, # Explicitly None for untracked in index
+                        staged=False,
+                        lines_added=0, # Line counts for untracked are usually 0 until added.
+                        lines_deleted=0,
+                        is_binary=False, # Default, can improve with file type detection
+                        old_path=None
+                    )
                     untracked_files.append(file_status)
-                # Handle other status codes by default behavior
+                    continue # Move to next file_info
+
+
+                # For tracked files, differentiate based on working_status
+                # ' 'M' ' 'A' ' 'D' ' 'R' etc. where working_status (right) is not empty and index_status (left)
+                # does not fully cover the changes (e.g., ' M' is unstaged modify, 'MM' is staged+unstaged modify)
+                
+                # Check if there are UNSTAGED changes in the working tree
+                # This means working_status is not ' ' (space) and is not '?'
+                if working_status and working_status.strip() != '': # Check right-hand side of status (unstaged changes)
+                    
+                    # For these files, diff_stats should be relative to the index (staged=False)
+                    lines_added = 0
+                    lines_deleted = 0
+                    is_binary = False
+                    
+                    try:
+                        if ctx:
+                            await ctx.debug(f"Getting diff stats for unstaged WD file {file_info['filename']}")
+                        diff_stats = await self.git_client.get_diff_stats(
+                            repo.path, 
+                            file_info["filename"], 
+                            staged=False, # Get diff between working tree and index (unstaged changes)
+                            ctx=ctx
+                        )
+                        lines_added = diff_stats.get("lines_added", 0)
+                        lines_deleted = diff_stats.get("lines_deleted", 0)
+                        is_binary = diff_stats.get("is_binary", False)
+                        if ctx:
+                            await ctx.debug(f"Got diff stats for unstaged WD file {file_info['filename']}: +{lines_added}/-{lines_deleted}, binary={is_binary}")
+                    except Exception as e:
+                        if ctx:
+                            await ctx.error(f"Failed to get diff stats for unstaged WD file {file_info['filename']}: {str(e)}")
+                        raise
+
+                    file_status = FileStatus(
+                        path=file_info["filename"],
+                        status_code=working_status, # The specific unstaged status
+                        working_tree_status=working_status,
+                        index_status=index_status, # Can still have an index status (e.g. 'MM')
+                        staged=False, # Explicitly mark as unstaged for this tool
+                        lines_added=lines_added,
+                        lines_deleted=lines_deleted,
+                        is_binary=is_binary,
+                        old_path=file_info.get("old_filename") if working_status == "R" else None # For untracked renames
+                    )
+
+                    if working_status == "M":
+                        modified_files.append(file_status)
+                    elif working_status == "A": # Note: 'A ' is working tree add. 'A' is staged add.
+                        added_files.append(file_status)
+                    elif working_status == "D": # Note: ' D' is working tree delete. 'D' is staged delete.
+                        deleted_files.append(file_status)
+                    elif working_status == "R": # Note: ' R' is working tree rename. 'R' is staged rename.
+                        renamed_files.append(file_status)
+                    # For other composite states like 'UD' (unmerged), we'll categorize based on actual status_code
+                    # or simply ignore for this tool if not 'M', 'A', 'D', 'R'.
+                else:
+                    if ctx:
+                        await ctx.debug(f"File {file_info['filename']} has no unstaged changes in working directory (status: {status_code})")
 
             changes = WorkingDirectoryChanges(
                 modified_files=modified_files,
@@ -83,8 +144,8 @@ class ChangeDetector:
             )
 
             if ctx:
-                total_files = changes.total_files
-                await ctx.debug(f"Detected working directory changes: {total_files} total files")
+                total_files = changes.total_files  # This property will now correctly reflect unstaged only
+                await ctx.debug(f"Detected working directory changes: {total_files} total files (unstaged)")
                 if total_files > 0:
                     await ctx.info(
                         f"Working directory summary: "
@@ -92,7 +153,7 @@ class ChangeDetector:
                         f"{len(added_files)} added, "
                         f"{len(deleted_files)} deleted, "
                         f"{len(renamed_files)} renamed, "
-                        f"{len(untracked_files)} untracked"
+                        f"{len(untracked_files)} untracked (all unstaged)"
                     )
 
             return changes
@@ -103,9 +164,9 @@ class ChangeDetector:
             raise
 
     async def detect_staged_changes(self, repo: LocalRepository, ctx: Optional["Context"] = None) -> StagedChanges:
-        """Detect changes staged for commit."""
+        """Detect changes staged for commit (changes IN THE INDEX)."""
         if ctx:
-            await ctx.debug("Detecting staged changes")
+            await ctx.debug("Detecting staged changes (in index only)")
 
         try:
             status_info = await self.git_client.get_status(repo.path, ctx)
@@ -116,23 +177,56 @@ class ChangeDetector:
                 await ctx.debug(f"Processing {len(status_info['files'])} file status entries for staged changes")
 
             for file_info in status_info["files"]:
-                # FIXED: Only include files that have index status (staged)
-                # AND exclude untracked files (status_code "?")
-                index_status = file_info.get("index_status")
-                status_code = file_info.get("status_code", "")
+                index_status = file_info.get("index_status") # Left-hand side of status output (staged)
+                working_status = file_info.get("working_status") # Right-hand side of status output (unstaged)
+                status_code = file_info.get("status_code", "") # Combined status code
 
-                # A file is staged if:
-                # 1. It has an index_status (something in the staging area)
-                # 2. It's NOT an untracked file (status_code != "?")
-                if index_status and status_code != "?":
+                # A file is considered "staged" if its left-hand status code from `git status` is not ' ' or '?'
+                # E.g., 'M ', 'A ', 'D ', 'R ', 'C ', 'U ' (unmerged conflict staged)
+                if index_status and index_status.strip() != '' and index_status != '?': # Filter for actual staged changes
+                    
+                    lines_added = 0
+                    lines_deleted = 0
+                    is_binary = False
+                    
+                    try:
+                        if ctx:
+                            await ctx.debug(f"Getting diff stats for staged file {file_info['filename']}")
+                        
+                        # For staged changes, get diff between index and HEAD (staged=True)
+                        diff_stats = await self.git_client.get_diff_stats(
+                            repo.path, 
+                            file_info["filename"], 
+                            staged=True,  # Always True for staged changes
+                            ctx=ctx
+                        )
+                        lines_added = diff_stats.get("lines_added", 0)
+                        lines_deleted = diff_stats.get("lines_deleted", 0)
+                        is_binary = diff_stats.get("is_binary", False)
+                        
+                        if ctx:
+                            await ctx.debug(f"Got diff stats for staged file {file_info['filename']}: +{lines_added}/-{lines_deleted}, binary={is_binary}")
+                            
+                    except Exception as e:
+                        if ctx:
+                            await ctx.error(f"Failed to get diff stats for staged file {file_info['filename']}: {str(e)}")
+                        raise
+                    
                     file_status = FileStatus(
                         path=file_info["filename"],
                         status_code=index_status,  # Use index_status for staged files
-                        staged=True,
+                        staged=True, # Explicitly mark as staged
                         index_status=index_status,
-                        working_tree_status=file_info.get("working_status"),
+                        working_tree_status=working_status, # Can still have unstaged changes (e.g. 'M M')
+                        lines_added=lines_added,
+                        lines_deleted=lines_deleted,
+                        is_binary=is_binary,
+                        old_path=file_info.get("old_filename") if index_status == "R" else None # For staged renames
                     )
                     staged_files.append(file_status)
+                else:
+                    if ctx:
+                        await ctx.debug(f"File {file_info['filename']} has no staged changes (status: {status_code})")
 
             changes = StagedChanges(staged_files=staged_files)
 
@@ -153,7 +247,6 @@ class ChangeDetector:
             if ctx:
                 await ctx.error(f"Failed to detect staged changes: {str(e)}")
             raise
-
     async def detect_unpushed_commits(
         self, repo: LocalRepository, ctx: Optional["Context"] = None
     ) -> list[UnpushedCommit]:

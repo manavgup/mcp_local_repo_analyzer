@@ -1,11 +1,11 @@
 """FastMCP tools for working directory analysis with enhanced return types."""
 
-import time
 from pathlib import Path
 from typing import Any
 
 from fastmcp import Context, FastMCP
-from mcp_shared_lib.models import FileStatus, LocalRepository
+from mcp_shared_lib.models import FileStatus, LocalRepository, StagedChanges, BranchStatus
+from mcp_shared_lib.models import WorkingDirectoryChanges
 from mcp_shared_lib.utils import find_git_root, is_git_repository
 from pydantic import Field
 
@@ -20,60 +20,13 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
         include_diffs: bool = Field(True, description="Include diff content in analysis"),
         max_diff_lines: int = Field(100, ge=10, le=1000, description="Maximum lines per diff to include"),
     ) -> dict[str, Any]:
-        """Analyze uncommitted changes in working directory.
+        """Analyze uncommitted changes in working directory."""
 
-        Returns detailed information about modified, added, deleted, renamed,
-        and untracked files in the working directory.
+        import time
+        from pathlib import Path
+        from mcp_shared_lib.models.analysis.results import OutstandingChangesAnalysis
+        from mcp_shared_lib.models.analysis.repository import RepositoryStatus
 
-        **Return Type**: Dict with WorkingDirectoryChanges structure
-        ```python
-        {
-            "repository_path": str,           # Pass to other repository tools
-            "total_files_changed": int,       # Use for conditional workflow logic
-            "has_changes": bool,              # Use to determine if staging/commit tools should run
-            "summary": {                      # Change counts for analysis routing
-                "modified": int, "added": int, "deleted": int,
-                "renamed": int, "untracked": int
-            },
-            "files": {                        # Categorized file lists for targeted analysis
-                "modified": List[FileStatus], "added": List[FileStatus],
-                "deleted": List[FileStatus], "renamed": List[FileStatus],
-                "untracked": List[FileStatus]
-            },
-            "diffs": List[dict] | None        # Diff content if include_diffs=True
-        }
-        ```
-
-        **Key Fields for Chaining**:
-        - `has_changes` (bool): Use to determine if staging/commit tools should be called
-        - `repository_path` (str): Pass to other repository analysis tools
-        - `total_files_changed` (int): Use for conditional workflow logic
-        - `files.modified` (list): Get specific file types for targeted analysis
-        - `summary` (dict): Change type counts for analysis routing
-
-        **Common Chaining Patterns**:
-        ```python
-        # Basic workflow decision
-        wd_result = await analyze_working_directory(repo_path)
-        if wd_result["has_changes"]:
-            staged_result = await analyze_staged_changes(wd_result["repository_path"])
-
-        # Risk-based routing
-        if wd_result["total_files_changed"] > 10:
-            validation = await validate_staged_changes(wd_result["repository_path"])
-
-        # File-specific analysis
-        for file_info in wd_result["files"]["modified"]:
-            if file_info["total_changes"] > 100:
-                diff_result = await get_file_diff(file_info["path"], wd_result["repository_path"])
-        ```
-
-        **Decision Points**:
-        - `has_changes=True`: Repository has work → analyze staging status
-        - `total_files_changed > 10`: Many changes → run validation
-        - `summary.untracked > 0`: New files → check if should be staged
-        - `files.modified`: Modified files → get detailed diffs if needed
-        """
         start_time = time.time()
         await ctx.info(f"Starting working directory analysis for: {repository_path}")
 
@@ -108,30 +61,44 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.report_progress(2, 4)
             await ctx.info(f"Found {changes.total_files} changed files")
 
-            result = {
-                "repository_path": str(repo_path),
-                "total_files_changed": changes.total_files,
-                "has_changes": changes.has_changes,
-                "summary": {
-                    "modified": len(changes.modified_files),
-                    "added": len(changes.added_files),
-                    "deleted": len(changes.deleted_files),
-                    "renamed": len(changes.renamed_files),
-                    "untracked": len(changes.untracked_files),
-                },
-                "files": {
-                    "modified": [_format_file_status(f) for f in changes.modified_files],
-                    "added": [_format_file_status(f) for f in changes.added_files],
-                    "deleted": [_format_file_status(f) for f in changes.deleted_files],
-                    "renamed": [_format_file_status(f) for f in changes.renamed_files],
-                    "untracked": [_format_file_status(f) for f in changes.untracked_files],
-                },
-            }
+            # Use WorkingDirectoryChanges object directly
+            working_dir_status = changes
+
+            # Categorize changes
+            categorization = mcp.diff_analyzer.categorize_changes(changes.all_files)
+
+            # Assess risk
+            risk_assessment = mcp.diff_analyzer.assess_risk(changes.all_files)
+
+            # Create RepositoryStatus model
+            repository_status = RepositoryStatus(repository=repo,
+                                                 working_directory=working_dir_status,
+                                                 staged_changes=StagedChanges(staged_files=[]),
+                                                 branch_status=BranchStatus(current_branch=repo.current_branch))
+
+            # Create OutstandingChangesAnalysis model
+            analysis = OutstandingChangesAnalysis(
+                repository_path=str(repo_path),
+                total_outstanding_files=changes.total_files,
+                categories=categorization,
+                risk_assessment=risk_assessment,
+                summary=f"Working directory analysis for {repo_path}",
+                repository_status=repository_status,
+            )
+
+            result = analysis.model_dump()
+
+            # --- IMPORTANT FIX HERE: Manually add total_files to the nested dict ---
+            # Because WorkingDirectoryChanges.total_files is a @property, it's not included by default
+            # in model_dump, but tests expect it to be present in the output dict.
+            # if "repository_status" in result and "working_directory" in result["repository_status"]:
+            #     result["repository_status"]["working_directory"]["total_files"] = changes.total_files
 
             # Add diffs if requested
             if include_diffs and changes.has_changes:
                 await ctx.debug(f"Generating diffs for {min(10, len(changes.all_files))} files")
-                result["diffs"] = await _get_file_diffs(mcp, repo_path, changes.all_files[:10], max_diff_lines, ctx)
+                diffs = await _get_file_diffs(mcp, repo_path, changes.all_files[:10], max_diff_lines, ctx)
+                result["diffs"] = diffs
 
             await ctx.report_progress(4, 4)
             duration = time.time() - start_time
@@ -326,7 +293,7 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             repo = LocalRepository(path=repo_path, name=repo_path.name, current_branch="main", head_commit="unknown")
 
             await ctx.debug("Detecting working directory changes to find untracked files")
-            changes = await mcp.change_detector.detect_working_directory_changes(repo, ctx)
+            changes: WorkingDirectoryChanges = await mcp.change_detector.detect_working_directory_changes(repo, ctx)
 
             untracked_files = [_format_file_status(f) for f in changes.untracked_files]
 

@@ -200,6 +200,89 @@ def register_tools(mcp: FastMCP):
         raise
 
 
+async def run_stdio_server():
+    """Run the server in STDIO mode for direct MCP client connections."""
+    try:
+        logger.info("=== Starting Local Repo Analyzer (STDIO) ===")
+        logger.info(f"Python version: {sys.version}")
+        logger.info(f"Working directory: {os.getcwd()}")
+        
+        # Create server and services
+        logger.info("Creating server and services...")
+        mcp, services = create_server()
+
+        # Store services in the app state for tools to access
+        logger.info("Setting up server context...")
+        mcp.app.state.services = services
+        logger.info("Server context configured")
+
+        # Register tools
+        logger.info("Registering tools...")
+        register_tools(mcp)
+        logger.info("Tools registration completed")
+
+        # Run the server with enhanced error handling
+        try:
+            logger.info("Starting FastMCP server in stdio mode...")
+            logger.info("Server is ready to receive MCP messages")
+            await mcp.run_stdio()
+        except (BrokenPipeError, EOFError) as e:
+            # Handle stdio stream closure gracefully
+            logger.info(f"Input stream closed ({type(e).__name__}), shutting down server gracefully")
+        except ConnectionResetError as e:
+            # Handle connection reset gracefully
+            logger.info(f"Connection reset ({e}), shutting down server gracefully")
+        except KeyboardInterrupt:
+            logger.info("Server stopped by user (KeyboardInterrupt)")
+        except Exception as e:
+            logger.error(f"Server runtime error: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            sys.exit(1)
+
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user during initialization")
+    except Exception as e:
+        logger.error(f"Server initialization error: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        sys.exit(1)
+
+
+def run_http_server(host: str = "127.0.0.1", port: int = 9070, transport: str = "streamable-http"):
+    """Run the server in HTTP mode for MCP Gateway integration."""
+    logger.info("=== Starting Local Repo Analyzer (HTTP) ===")
+    logger.info(f"🌐 Transport: {transport}")
+    logger.info(f"🌐 Endpoint: http://{host}:{port}/mcp")
+    logger.info(f"🏥 Health: http://{host}:{port}/health")
+    
+    try:
+        # Create server and services
+        logger.info("Creating server and services...")
+        mcp, services = create_server()
+
+        # Store services in the app state for tools to access
+        logger.info("Setting up server context...")
+        mcp.app.state.services = services
+        logger.info("Server context configured")
+
+        # Register tools
+        logger.info("Registering tools...")
+        register_tools(mcp)
+        logger.info("Tools registration completed")
+
+        # Create HTTP app
+        app = mcp.http_app(path="/mcp", transport=transport)
+        
+        # Run with uvicorn
+        import uvicorn
+        logger.info("Starting HTTP server...")
+        uvicorn.run(app, host=host, port=port, log_level="info")
+        
+    except Exception as e:
+        logger.error(f"HTTP server error: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        sys.exit(1)
+
+
 def main():
     """Main entry point with command line argument parsing."""
     parser = argparse.ArgumentParser(description="MCP Local Repository Analyzer")
@@ -234,7 +317,7 @@ def main():
     args = parser.parse_args()
     
     # Setup logging
-    setup_logging(args.log_level)
+    logging_service.set_level(args.log_level)
 
     # Set default work directory - Docker volume mount support
     work_dir = args.work_dir or os.getenv('WORK_DIR')
