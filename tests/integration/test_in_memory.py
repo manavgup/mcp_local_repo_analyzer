@@ -1,16 +1,15 @@
 import pytest
+
 #!/usr/bin/env python3
 """
 In-memory test client for the Local Git Changes Analyzer.
 This bypasses stdio transport issues by running server in same process.
 """
 
-import asyncio
 import sys
 from pathlib import Path
 
 from fastmcp import Client
-
 from mcp_local_repo_analyzer.main import create_server, register_tools
 
 # Add the project root to Python path so imports work
@@ -43,12 +42,12 @@ async def test_in_memory():
         assert isinstance(tools, list)
         for tool in tools:
             # Handle both dict and Tool object formats
-            if hasattr(tool, 'name'):
+            if hasattr(tool, "name"):
                 name = tool.name
-                description = getattr(tool, 'description', 'No description')
+                description = getattr(tool, "description", "No description")
             else:
-                name = tool.get('name', 'Unknown')
-                description = tool.get('description', 'No description')
+                name = tool.get("name", "Unknown")
+                description = tool.get("description", "No description")
             print(f"  - {name}: {description}")
 
         # Test 2: Analyze working directory
@@ -56,7 +55,11 @@ async def test_in_memory():
         try:
             result = await client.call_tool(
                 "analyze_working_directory",
-                {"repository_path": ".", "include_diffs": False, "max_diff_lines": 10},  # Keep it simple for testing
+                {
+                    "repository_path": ".",
+                    "include_diffs": False,
+                    "max_diff_lines": 10,
+                },  # Keep it simple for testing
             )
             assert isinstance(result, dict) or isinstance(result, list)
             print("✅ Working directory analysis:")
@@ -67,7 +70,9 @@ async def test_in_memory():
         # Test 3: Get outstanding summary
         print("\n📊 Testing comprehensive summary...")
         try:
-            result = await client.call_tool("get_outstanding_summary", {"repository_path": ".", "detailed": False})
+            result = await client.call_tool(
+                "get_outstanding_summary", {"repository_path": ".", "detailed": False}
+            )
             assert isinstance(result, dict) or isinstance(result, list)
             print("✅ Outstanding summary:")
             print_result_summary(result)

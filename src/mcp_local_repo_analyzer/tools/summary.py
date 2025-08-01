@@ -6,7 +6,12 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp import Context, FastMCP
-from mcp_shared_lib.models import ChangeCategorization, LocalRepository, RepositoryStatus, RiskAssessment
+from mcp_shared_lib.models import (
+    ChangeCategorization,
+    LocalRepository,
+    RepositoryStatus,
+    RiskAssessment,
+)
 from mcp_shared_lib.utils import find_git_root, is_git_repository
 from pydantic import Field
 
@@ -18,7 +23,9 @@ def register_summary_tools(mcp: FastMCP):
     async def get_outstanding_summary(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
-        detailed: bool = Field(True, description="Include detailed analysis and recommendations"),
+        detailed: bool = Field(
+            True, description="Include detailed analysis and recommendations"
+        ),
     ) -> dict[str, Any]:
         """Get comprehensive summary of all outstanding changes.
 
@@ -98,7 +105,9 @@ def register_summary_tools(mcp: FastMCP):
         - `branch_status.needs_pull`: Behind remote → sync before push
         """
         start_time = time.time()
-        await ctx.info(f"Starting comprehensive repository analysis for: {repository_path}")
+        await ctx.info(
+            f"Starting comprehensive repository analysis for: {repository_path}"
+        )
 
         repo_path = Path(repository_path).resolve()
         if not is_git_repository(repo_path):
@@ -136,7 +145,10 @@ def register_summary_tools(mcp: FastMCP):
             await ctx.debug("Categorizing and analyzing file changes")
 
             # Analyze all files together for categorization and risk
-            all_changed_files = repo_status.working_directory.all_files + repo_status.staged_changes.staged_files
+            all_changed_files = (
+                repo_status.working_directory.all_files
+                + repo_status.staged_changes.staged_files
+            )
 
             await ctx.debug(f"Analyzing {len(all_changed_files)} total changed files")
             categories = mcp.diff_analyzer.categorize_changes(all_changed_files)
@@ -146,10 +158,14 @@ def register_summary_tools(mcp: FastMCP):
             await ctx.debug("Generating recommendations and summary")
 
             # Generate recommendations
-            recommendations = _generate_recommendations(repo_status, risk_assessment, categories)
+            recommendations = _generate_recommendations(
+                repo_status, risk_assessment, categories
+            )
 
             # Create summary text
-            summary_text = _create_summary_text(repo_status, risk_assessment, categories)
+            summary_text = _create_summary_text(
+                repo_status, risk_assessment, categories
+            )
 
             await ctx.report_progress(5, 6)
             await ctx.debug("Compiling final results")
@@ -169,12 +185,16 @@ def register_summary_tools(mcp: FastMCP):
                 "has_outstanding_work": repo_status.has_outstanding_work,
                 "total_outstanding_changes": repo_status.total_outstanding_changes,
                 "summary": summary_text,
-            "quick_stats": {
-                "working_directory_changes": sum(1 for f in repo_status.working_directory.all_files if not f.staged),
-                "staged_changes": repo_status.staged_changes.total_staged,
-                "unpushed_commits": len(repo_status.unpushed_commits),
-                "stashed_changes": len(repo_status.stashed_changes),
-            },
+                "quick_stats": {
+                    "working_directory_changes": sum(
+                        1
+                        for f in repo_status.working_directory.all_files
+                        if not f.staged
+                    ),
+                    "staged_changes": repo_status.staged_changes.total_staged,
+                    "unpushed_commits": len(repo_status.unpushed_commits),
+                    "stashed_changes": len(repo_status.stashed_changes),
+                },
                 "branch_status": {
                     "current": repo_status.branch_status.current_branch,
                     "upstream": repo_status.branch_status.upstream_branch,
@@ -226,9 +246,13 @@ def register_summary_tools(mcp: FastMCP):
 
             # Log summary insights
             if repo_status.has_outstanding_work:
-                await ctx.info(f"Analysis complete: {repo_status.total_outstanding_changes} outstanding changes found")
+                await ctx.info(
+                    f"Analysis complete: {repo_status.total_outstanding_changes} outstanding changes found"
+                )
                 if risk_assessment.risk_level == "high":
-                    await ctx.warning("High-risk changes detected - review carefully before proceeding")
+                    await ctx.warning(
+                        "High-risk changes detected - review carefully before proceeding"
+                    )
                 elif len(repo_status.unpushed_commits) > 10:
                     await ctx.warning(
                         f"Many unpushed commits ({len(repo_status.unpushed_commits)}) - consider pushing soon"
@@ -236,12 +260,16 @@ def register_summary_tools(mcp: FastMCP):
             else:
                 await ctx.info("Repository is clean - no outstanding changes detected")
 
-            await ctx.info(f"Comprehensive analysis completed in {duration:.2f} seconds")
+            await ctx.info(
+                f"Comprehensive analysis completed in {duration:.2f} seconds"
+            )
             return result
 
         except Exception as e:
             duration = time.time() - start_time
-            await ctx.error(f"Comprehensive analysis failed after {duration:.2f} seconds: {str(e)}")
+            await ctx.error(
+                f"Comprehensive analysis failed after {duration:.2f} seconds: {str(e)}"
+            )
             return {"error": f"Failed to get outstanding summary: {str(e)}"}
 
     @mcp.tool()
@@ -319,7 +347,12 @@ def register_summary_tools(mcp: FastMCP):
 
         try:
             await ctx.debug("Creating repository model")
-            repo = LocalRepository(path=repo_path, name=repo_path.name, current_branch="main", head_commit="unknown")
+            repo = LocalRepository(
+                path=repo_path,
+                name=repo_path.name,
+                current_branch="main",
+                head_commit="unknown",
+            )
 
             await ctx.debug("Gathering health metrics")
             health_metrics = await mcp.status_tracker.get_health_metrics(repo, ctx)
@@ -336,20 +369,30 @@ def register_summary_tools(mcp: FastMCP):
 
             if health_metrics["staged_changes_count"] > 0:
                 health_score -= 15
-                issues.append(f"{health_metrics['staged_changes_count']} staged changes not committed")
-                await ctx.warning(f"Staged changes detected")
+                issues.append(
+                    f"{health_metrics['staged_changes_count']} staged changes not committed"
+                )
+                await ctx.warning("Staged changes detected")
 
             if health_metrics["unpushed_commits_count"] > 5:
                 health_score -= 15
-                issues.append(f"{health_metrics['unpushed_commits_count']} unpushed commits")
-                await ctx.warning(f"Many unpushed commits: {health_metrics['unpushed_commits_count']}")
+                issues.append(
+                    f"{health_metrics['unpushed_commits_count']} unpushed commits"
+                )
+                await ctx.warning(
+                    f"Many unpushed commits: {health_metrics['unpushed_commits_count']}"
+                )
             elif health_metrics["unpushed_commits_count"] > 0:
                 health_score -= 5
 
             if health_metrics["stashed_changes_count"] > 0:
                 health_score -= 10
-                issues.append(f"{health_metrics['stashed_changes_count']} stashed changes")
-                await ctx.info(f"Stashed changes present: {health_metrics['stashed_changes_count']}")
+                issues.append(
+                    f"{health_metrics['stashed_changes_count']} stashed changes"
+                )
+                await ctx.info(
+                    f"Stashed changes present: {health_metrics['stashed_changes_count']}"
+                )
 
             if "behind" in health_metrics["branch_sync_status"]:
                 health_score -= 15
@@ -375,7 +418,9 @@ def register_summary_tools(mcp: FastMCP):
             recommendations = _generate_health_recommendations(health_metrics, issues)
 
             duration = time.time() - start_time
-            await ctx.info(f"Health analysis complete: {health_status} ({health_score}/100) in {duration:.2f} seconds")
+            await ctx.info(
+                f"Health analysis complete: {health_status} ({health_score}/100) in {duration:.2f} seconds"
+            )
 
             return {
                 "repository_path": str(repo_path),
@@ -388,7 +433,9 @@ def register_summary_tools(mcp: FastMCP):
 
         except Exception as e:
             duration = time.time() - start_time
-            await ctx.error(f"Repository health analysis failed after {duration:.2f} seconds: {str(e)}")
+            await ctx.error(
+                f"Repository health analysis failed after {duration:.2f} seconds: {str(e)}"
+            )
             return {"error": f"Failed to analyze repository health: {str(e)}"}
 
     @mcp.tool()
@@ -512,7 +559,9 @@ def register_summary_tools(mcp: FastMCP):
 
             # Check for stashed changes (warning, not blocker)
             if repo_status.stashed_changes:
-                warning_msg = f"{len(repo_status.stashed_changes)} stashed changes present"
+                warning_msg = (
+                    f"{len(repo_status.stashed_changes)} stashed changes present"
+                )
                 warnings.append(warning_msg)
                 await ctx.info(warning_msg)
 
@@ -622,10 +671,17 @@ def register_summary_tools(mcp: FastMCP):
 
         try:
             await ctx.debug("Creating repository model")
-            repo = LocalRepository(path=repo_path, name=repo_path.name, current_branch="main", head_commit="unknown")
+            repo = LocalRepository(
+                path=repo_path,
+                name=repo_path.name,
+                current_branch="main",
+                head_commit="unknown",
+            )
 
             await ctx.debug("Detecting stashed changes")
-            stashed_changes = await mcp.change_detector.detect_stashed_changes(repo, ctx)
+            stashed_changes = await mcp.change_detector.detect_stashed_changes(
+                repo, ctx
+            )
 
             if not stashed_changes:
                 await ctx.info("No stashed changes found")
@@ -671,7 +727,9 @@ def register_summary_tools(mcp: FastMCP):
     async def detect_conflicts(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
-        target_branch: str = Field("main", description="Branch to check conflicts against"),
+        target_branch: str = Field(
+            "main", description="Branch to check conflicts against"
+        ),
     ) -> dict[str, Any]:
         """Detect potential merge conflicts.
 
@@ -722,7 +780,9 @@ def register_summary_tools(mcp: FastMCP):
         - `risk_level="high"`: High conflict risk → require manual review
         - `potential_conflict_files`: Specific files needing conflict resolution
         """
-        await ctx.info(f"Detecting potential conflicts with branch '{target_branch}' for: {repository_path}")
+        await ctx.info(
+            f"Detecting potential conflicts with branch '{target_branch}' for: {repository_path}"
+        )
 
         repo_path = Path(repository_path).resolve()
         if not is_git_repository(repo_path):
@@ -749,12 +809,17 @@ def register_summary_tools(mcp: FastMCP):
 
             await ctx.debug("Creating repository model")
             repo = LocalRepository(
-                path=repo_path, name=repo_path.name, current_branch=current_branch, head_commit="unknown"
+                path=repo_path,
+                name=repo_path.name,
+                current_branch=current_branch,
+                head_commit="unknown",
             )
 
             await ctx.debug("Getting working directory and staged changes")
             # Get working directory and staged changes
-            working_changes = await mcp.change_detector.detect_working_directory_changes(repo, ctx)
+            working_changes = (
+                await mcp.change_detector.detect_working_directory_changes(repo, ctx)
+            )
             staged_changes = await mcp.change_detector.detect_staged_changes(repo, ctx)
 
             await ctx.debug("Analyzing potential conflicts")
@@ -776,7 +841,9 @@ def register_summary_tools(mcp: FastMCP):
                 ):
                     high_risk_files.append(file_status.path)
 
-            has_potential_conflicts = len(potential_conflicts) > 0 or len(high_risk_files) > 0
+            has_potential_conflicts = (
+                len(potential_conflicts) > 0 or len(high_risk_files) > 0
+            )
 
             if has_potential_conflicts:
                 await ctx.warning(
@@ -818,7 +885,9 @@ def register_summary_tools(mcp: FastMCP):
 
 
 def _generate_recommendations(
-    repo_status: RepositoryStatus, risk_assessment: RiskAssessment, categories: ChangeCategorization
+    repo_status: RepositoryStatus,
+    risk_assessment: RiskAssessment,
+    categories: ChangeCategorization,
 ) -> list[str]:
     """Generate recommendations based on repository status."""
     recommendations = []
@@ -826,7 +895,9 @@ def _generate_recommendations(
     # Working directory recommendations
     if repo_status.working_directory.has_changes:
         if risk_assessment.risk_level == "high":
-            recommendations.append("⚠️  Review high-risk changes carefully before committing")
+            recommendations.append(
+                "⚠️  Review high-risk changes carefully before committing"
+            )
         recommendations.append("📝 Commit working directory changes when ready")
 
     # Staged changes recommendations
@@ -859,7 +930,9 @@ def _generate_recommendations(
 
 
 def _create_summary_text(
-    repo_status: RepositoryStatus, risk_assessment: RiskAssessment, categories: ChangeCategorization
+    repo_status: RepositoryStatus,
+    risk_assessment: RiskAssessment,
+    categories: ChangeCategorization,
 ) -> str:
     """Create a human-readable summary text."""
     parts = []
@@ -869,12 +942,16 @@ def _create_summary_text(
         return "✅ Repository is clean - no outstanding changes detected."
 
     # Now, repo_status.working_directory.total_files already represents only UNSTAGED changes
-    if repo_status.working_directory.total_files > 0: 
-        parts.append(f"📝 {repo_status.working_directory.total_files} file(s) with uncommitted changes")
+    if repo_status.working_directory.total_files > 0:
+        parts.append(
+            f"📝 {repo_status.working_directory.total_files} file(s) with uncommitted changes"
+        )
 
     # Staged changes
     if repo_status.staged_changes.ready_to_commit:
-        parts.append(f"📋 {repo_status.staged_changes.total_staged} file(s) staged for commit")
+        parts.append(
+            f"📋 {repo_status.staged_changes.total_staged} file(s) staged for commit"
+        )
 
     # Unpushed commits
     if len(repo_status.unpushed_commits) > 0:
@@ -893,7 +970,9 @@ def _create_summary_text(
     return " | ".join(parts) if parts else "Repository has outstanding work."
 
 
-def _generate_health_recommendations(health_metrics: dict[str, Any], issues: list[str]) -> list[str]:
+def _generate_health_recommendations(
+    health_metrics: dict[str, Any], issues: list[str]
+) -> list[str]:
     """Generate health improvement recommendations."""
     recommendations = []
 

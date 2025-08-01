@@ -5,24 +5,24 @@ This module provides analyzer-specific fixtures while importing shared
 fixtures from mcp_shared_lib.
 """
 
-import pytest
-from pathlib import Path
-from unittest.mock import Mock, AsyncMock, patch
-import tempfile
-import json
-from typing import Dict, Any, List
 from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import Mock
+
+import pytest
 
 # Import shared fixtures from mcp_shared_lib
 
 try:
-    from git import Repo, GitCommandError
+    from git import GitCommandError, Repo
+
     HAS_GIT = True
 except ImportError:
     HAS_GIT = False
 
 try:
     from fastmcp import FastMCP
+
     HAS_FASTMCP = True
 except ImportError:
     HAS_FASTMCP = False
@@ -32,33 +32,35 @@ except ImportError:
 def analyzer_config(sample_config):
     """Extended configuration specific to the analyzer."""
     config = sample_config.copy()
-    config.update({
-        "analyzer": {
-            "scan_depth": 10,
-            "ignore_patterns": ["*.log", "*.tmp", "node_modules/"],
-            "risk_weights": {
-                "file_size": 0.3,
-                "complexity": 0.4,
-                "test_coverage": 0.3
+    config.update(
+        {
+            "analyzer": {
+                "scan_depth": 10,
+                "ignore_patterns": ["*.log", "*.tmp", "node_modules/"],
+                "risk_weights": {
+                    "file_size": 0.3,
+                    "complexity": 0.4,
+                    "test_coverage": 0.3,
+                },
+                "change_detection": {
+                    "include_untracked": True,
+                    "include_stashes": False,
+                    "max_commits_to_analyze": 50,
+                },
             },
-            "change_detection": {
-                "include_untracked": True,
-                "include_stashes": False,
-                "max_commits_to_analyze": 50
-            }
-        },
-        "git_client": {
-            "timeout": 30,
-            "max_diff_size": 1000000,
-            "binary_file_threshold": 1024
-        },
-        "risk_assessment": {
-            "critical_files": ["config/", "migrations/", "Dockerfile"],
-            "high_risk_extensions": [".sql", ".json", ".yaml", ".yml"],
-            "complexity_threshold": 15,
-            "size_threshold_mb": 5
+            "git_client": {
+                "timeout": 30,
+                "max_diff_size": 1000000,
+                "binary_file_threshold": 1024,
+            },
+            "risk_assessment": {
+                "critical_files": ["config/", "migrations/", "Dockerfile"],
+                "high_risk_extensions": [".sql", ".json", ".yaml", ".yml"],
+                "complexity_threshold": 15,
+                "size_threshold_mb": 5,
+            },
         }
-    })
+    )
     return config
 
 
@@ -66,31 +68,23 @@ def analyzer_config(sample_config):
 def mock_git_client():
     """Mock GitClient for testing analyzer services."""
     client = Mock()
-    
+
     # Repository state methods
     client.get_repo_root.return_value = Path("/test/repo")
     client.get_current_branch.return_value = "feature/test-branch"
     client.has_uncommitted_changes.return_value = True
     client.has_unpushed_commits.return_value = True
     client.get_remote_url.return_value = "https://github.com/test/repo.git"
-    
+
     # File change methods
     client.get_modified_files.return_value = [
         "src/models/user.py",
-        "tests/test_user.py"
+        "tests/test_user.py",
     ]
-    client.get_untracked_files.return_value = [
-        "src/new_feature.py",
-        "temp_notes.txt"
-    ]
-    client.get_staged_files.return_value = [
-        "README.md",
-        "docs/api.md"
-    ]
-    client.get_deleted_files.return_value = [
-        "deprecated/old_module.py"
-    ]
-    
+    client.get_untracked_files.return_value = ["src/new_feature.py", "temp_notes.txt"]
+    client.get_staged_files.return_value = ["README.md", "docs/api.md"]
+    client.get_deleted_files.return_value = ["deprecated/old_module.py"]
+
     # Commit history
     client.get_unpushed_commits.return_value = [
         {
@@ -98,38 +92,38 @@ def mock_git_client():
             "message": "feat: add user authentication",
             "author": "John Doe",
             "timestamp": datetime.now() - timedelta(hours=2),
-            "files": ["src/auth.py", "tests/test_auth.py"]
+            "files": ["src/auth.py", "tests/test_auth.py"],
         },
         {
-            "hash": "def456", 
+            "hash": "def456",
             "message": "fix: resolve login bug",
             "author": "Jane Smith",
             "timestamp": datetime.now() - timedelta(hours=4),
-            "files": ["src/auth.py"]
-        }
+            "files": ["src/auth.py"],
+        },
     ]
-    
+
     # Stash operations
     client.get_stashes.return_value = [
         {
             "index": 0,
             "message": "WIP: experimental feature",
             "timestamp": datetime.now() - timedelta(hours=1),
-            "files": ["src/experimental.py"]
+            "files": ["src/experimental.py"],
         }
     ]
-    
+
     # Diff operations
     client.get_file_diff.return_value = {
         "additions": 25,
         "deletions": 5,
-        "diff_text": "@@ -1,3 +1,28 @@\n class User:\n+    def __init__(self):\n+        pass"
+        "diff_text": "@@ -1,3 +1,28 @@\n class User:\n+    def __init__(self):\n+        pass",
     }
-    
+
     # Branch operations
     client.get_all_branches.return_value = ["main", "develop", "feature/test-branch"]
     client.get_merge_conflicts.return_value = []
-    
+
     return client
 
 
@@ -137,15 +131,15 @@ def mock_git_client():
 def mock_change_detector():
     """Mock ChangeDetector for testing."""
     detector = Mock()
-    
+
     detector.detect_all_changes.return_value = {
         "modified": ["src/main.py", "tests/test_main.py"],
         "untracked": ["new_file.py"],
         "staged": ["README.md"],
         "deleted": [],
-        "conflicted": []
+        "conflicted": [],
     }
-    
+
     detector.analyze_file_changes.return_value = [
         {
             "file_path": "src/main.py",
@@ -153,7 +147,7 @@ def mock_change_detector():
             "lines_added": 15,
             "lines_removed": 3,
             "risk_score": 0.4,
-            "size_change": 12
+            "size_change": 12,
         },
         {
             "file_path": "new_file.py",
@@ -161,18 +155,18 @@ def mock_change_detector():
             "lines_added": 50,
             "lines_removed": 0,
             "risk_score": 0.6,
-            "size_change": 50
-        }
+            "size_change": 50,
+        },
     ]
-    
+
     detector.get_change_summary.return_value = {
         "total_files": 3,
         "total_additions": 65,
         "total_deletions": 3,
         "net_change": 62,
-        "risk_level": "medium"
+        "risk_level": "medium",
     }
-    
+
     return detector
 
 
@@ -180,49 +174,41 @@ def mock_change_detector():
 def mock_risk_assessor():
     """Mock RiskAssessor for testing."""
     assessor = Mock()
-    
+
     assessor.assess_file_risk.return_value = {
         "risk_score": 0.7,
         "factors": {
             "file_size": 0.3,
             "complexity": 0.5,
             "critical_path": True,
-            "test_coverage": 0.8
+            "test_coverage": 0.8,
         },
         "recommendations": [
             "Add more unit tests",
-            "Consider breaking into smaller modules"
-        ]
+            "Consider breaking into smaller modules",
+        ],
     }
-    
+
     assessor.assess_overall_risk.return_value = {
         "overall_risk": 0.6,
         "high_risk_files": ["config/database.json", "src/core/processor.py"],
-        "risk_distribution": {
-            "low": 3,
-            "medium": 4,
-            "high": 2,
-            "critical": 1
-        },
+        "risk_distribution": {"low": 3, "medium": 4, "high": 2, "critical": 1},
         "recommendations": [
             "Review critical configuration changes",
-            "Ensure adequate test coverage for high-risk files"
-        ]
+            "Ensure adequate test coverage for high-risk files",
+        ],
     }
-    
+
     assessor.check_push_readiness.return_value = {
         "ready": False,
         "blockers": [
             "Uncommitted changes in critical files",
-            "Missing tests for new features"
+            "Missing tests for new features",
         ],
-        "warnings": [
-            "Large number of file changes",
-            "Complex modifications detected"
-        ],
-        "score": 0.3
+        "warnings": ["Large number of file changes", "Complex modifications detected"],
+        "score": 0.3,
     }
-    
+
     return assessor
 
 
@@ -234,26 +220,16 @@ def sample_repository_state():
             "clean": False,
             "modified_files": 5,
             "untracked_files": 2,
-            "deleted_files": 1
+            "deleted_files": 1,
         },
-        "staging_area": {
-            "staged_files": 3,
-            "ready_to_commit": True
-        },
-        "commit_history": {
-            "unpushed_commits": 4,
-            "ahead_by": 4,
-            "behind_by": 0
-        },
+        "staging_area": {"staged_files": 3, "ready_to_commit": True},
+        "commit_history": {"unpushed_commits": 4, "ahead_by": 4, "behind_by": 0},
         "branches": {
             "current": "feature/analytics",
             "tracking": "origin/feature/analytics",
-            "merge_conflicts": False
+            "merge_conflicts": False,
         },
-        "stashes": {
-            "count": 1,
-            "latest_message": "WIP: refactoring data layer"
-        }
+        "stashes": {"count": 1, "latest_message": "WIP: refactoring data layer"},
     }
 
 
@@ -261,7 +237,7 @@ def sample_repository_state():
 def mock_file_analyzer():
     """Mock file analyzer for individual file analysis."""
     analyzer = Mock()
-    
+
     analyzer.analyze_file.return_value = {
         "file_path": "src/example.py",
         "size_bytes": 2048,
@@ -275,30 +251,27 @@ def mock_file_analyzer():
             "large_function": False,
             "high_complexity": False,
             "missing_docstrings": True,
-            "security_patterns": []
-        }
+            "security_patterns": [],
+        },
     }
-    
+
     analyzer.get_file_metrics.return_value = {
         "cyclomatic_complexity": 8,
         "maintainability_index": 72,
-        "halstead_metrics": {
-            "volume": 1250,
-            "difficulty": 15.2,
-            "effort": 19000
-        },
-        "code_to_comment_ratio": 0.15
+        "halstead_metrics": {"volume": 1250, "difficulty": 15.2, "effort": 19000},
+        "code_to_comment_ratio": 0.15,
     }
-    
+
     return analyzer
 
 
 if HAS_FASTMCP:
+
     @pytest.fixture
     async def fastmcp_analyzer_server():
         """FastMCP server instance configured for analyzer testing."""
         server = FastMCP("LocalRepoAnalyzer")
-        
+
         @server.tool
         def analyze_changes(repo_path: str, include_untracked: bool = False) -> dict:
             """Analyze repository changes."""
@@ -307,11 +280,11 @@ if HAS_FASTMCP:
                 "changes": {
                     "modified": ["src/main.py"],
                     "untracked": ["temp.py"] if include_untracked else [],
-                    "staged": ["README.md"]
+                    "staged": ["README.md"],
                 },
-                "risk_score": 0.4
+                "risk_score": 0.4,
             }
-        
+
         @server.tool
         def check_push_readiness(repo_path: str) -> dict:
             """Check if repository is ready for push."""
@@ -321,10 +294,10 @@ if HAS_FASTMCP:
                 "checks": {
                     "no_conflicts": True,
                     "tests_passing": True,
-                    "no_critical_issues": True
-                }
+                    "no_critical_issues": True,
+                },
             }
-        
+
         @server.tool
         def analyze_commit_history(repo_path: str, max_commits: int = 10) -> dict:
             """Analyze recent commit history."""
@@ -335,17 +308,16 @@ if HAS_FASTMCP:
                         "hash": "abc123",
                         "message": "feat: add new feature",
                         "author": "Test User",
-                        "files_changed": 3
+                        "files_changed": 3,
                     }
                 ],
-                "summary": {
-                    "total_commits": 1,
-                    "average_files_per_commit": 3.0
-                }
+                "summary": {"total_commits": 1, "average_files_per_commit": 3.0},
             }
-        
+
         return server
+
 else:
+
     @pytest.fixture
     def fastmcp_analyzer_server():
         """Fallback fixture when FastMCP is not available."""
@@ -356,23 +328,20 @@ else:
 def mock_analyzer_tools():
     """Mock collection of analyzer tools."""
     tools = Mock()
-    
+
     # Analyze changes tool
     tools.analyze_changes = Mock()
     tools.analyze_changes.return_value = {
         "modified_files": ["src/main.py", "tests/test_main.py"],
         "untracked_files": ["new_feature.py"],
         "staged_files": ["README.md"],
-        "risk_assessment": {
-            "overall_risk": 0.5,
-            "high_risk_files": []
-        },
+        "risk_assessment": {"overall_risk": 0.5, "high_risk_files": []},
         "recommendations": [
             "Consider adding tests for new_feature.py",
-            "Review changes in main.py for potential impacts"
-        ]
+            "Review changes in main.py for potential impacts",
+        ],
     }
-    
+
     # Push readiness tool
     tools.check_push_readiness = Mock()
     tools.check_push_readiness.return_value = {
@@ -383,14 +352,14 @@ def mock_analyzer_tools():
             "has_untracked_files": True,
             "has_merge_conflicts": False,
             "tests_exist": True,
-            "critical_files_changed": False
+            "critical_files_changed": False,
         },
         "recommendations": [
             "Consider tracking new files before push",
-            "Run full test suite before pushing"
-        ]
+            "Run full test suite before pushing",
+        ],
     }
-    
+
     # Stash analysis tool
     tools.analyze_stashes = Mock()
     tools.analyze_stashes.return_value = {
@@ -400,21 +369,21 @@ def mock_analyzer_tools():
                 "index": 0,
                 "message": "WIP: experimental changes",
                 "files": ["src/experimental.py"],
-                "age_hours": 24
+                "age_hours": 24,
             },
             {
                 "index": 1,
                 "message": "temp: debugging session",
                 "files": ["debug.py", "test_output.log"],
-                "age_hours": 72
-            }
+                "age_hours": 72,
+            },
         ],
         "recommendations": [
             "Review old stashes for relevant changes",
-            "Clean up temporary debugging files"
-        ]
+            "Clean up temporary debugging files",
+        ],
     }
-    
+
     return tools
 
 
@@ -423,41 +392,48 @@ def analyzer_test_repo(temp_git_repo, create_test_files, sample_project_structur
     """Create a test repository with analyzer-specific structure."""
     if not HAS_GIT:
         pytest.skip("Git not available for testing")
-    
+
     # Create the project structure
     create_test_files(temp_git_repo, sample_project_structure)
-    
+
     # Initialize git repository with the files
     repo = Repo(temp_git_repo)
-    
+
     # Add all files and make initial commit
     repo.git.add(".")
     repo.index.commit("Initial commit with full project structure")
-    
+
     # Create some changes for testing
     # Modify existing file
     main_file = temp_git_repo / "src" / "main.py"
-    main_file.write_text("#!/usr/bin/env python3\n\ndef main():\n    print('Hello, Modified World!')\n\nif __name__ == '__main__':\n    main()\n")
-    
+    main_file.write_text(
+        "#!/usr/bin/env python3\n\ndef main():\n    print('Hello, Modified World!')\n\nif __name__ == '__main__':\n    main()\n"
+    )
+
     # Add new untracked file
     new_feature = temp_git_repo / "src" / "new_feature.py"
-    new_feature.write_text("def new_feature():\n    '''New feature implementation.'''\n    return 'new feature'\n")
-    
+    new_feature.write_text(
+        "def new_feature():\n    '''New feature implementation.'''\n    return 'new feature'\n"
+    )
+
     # Stage some changes
     readme = temp_git_repo / "README.md"
-    readme.write_text("# Test Project\n\nUpdated main readme with more information.\n\n## Features\n- Main functionality\n- New features\n")
+    readme.write_text(
+        "# Test Project\n\nUpdated main readme with more information.\n\n## Features\n- Main functionality\n- New features\n"
+    )
     repo.index.add([str(readme)])
-    
+
     # Create a config change (high risk)
     config_file = temp_git_repo / "config" / "settings.json"
     import json
+
     updated_config = {
         "database": {"host": "production.db.com", "port": 5432},
         "api": {"version": "v2", "timeout": 60},
-        "security": {"encryption": True, "auth_required": True}
+        "security": {"encryption": True, "auth_required": True},
     }
     config_file.write_text(json.dumps(updated_config, indent=2))
-    
+
     return temp_git_repo
 
 
@@ -471,14 +447,14 @@ def sample_analysis_request():
             "include_stashes": False,
             "max_commits": 20,
             "risk_assessment": True,
-            "detailed_analysis": True
+            "detailed_analysis": True,
         },
         "filters": {
             "file_patterns": ["*.py", "*.js", "*.json"],
             "exclude_patterns": ["*.log", "*.tmp", "node_modules/"],
             "min_file_size": 0,
-            "max_file_size": 10485760  # 10MB
-        }
+            "max_file_size": 10485760,  # 10MB
+        },
     }
 
 
@@ -492,7 +468,7 @@ def expected_analysis_response():
             "path": "/test/repo",
             "branch": "feature/test",
             "remote": "origin",
-            "clean": False
+            "clean": False,
         },
         "changes": {
             "modified": [
@@ -500,25 +476,21 @@ def expected_analysis_response():
                     "file": "src/main.py",
                     "lines_added": 10,
                     "lines_removed": 2,
-                    "risk_score": 0.3
+                    "risk_score": 0.3,
                 }
             ],
             "untracked": [
-                {
-                    "file": "src/new_feature.py",
-                    "size": 1024,
-                    "risk_score": 0.5
-                }
+                {"file": "src/new_feature.py", "size": 1024, "risk_score": 0.5}
             ],
             "staged": [
                 {
                     "file": "README.md",
                     "lines_added": 5,
                     "lines_removed": 1,
-                    "risk_score": 0.1
+                    "risk_score": 0.1,
                 }
             ],
-            "deleted": []
+            "deleted": [],
         },
         "risk_assessment": {
             "overall_risk": 0.4,
@@ -526,25 +498,25 @@ def expected_analysis_response():
                 "config_changes": False,
                 "large_changes": False,
                 "new_dependencies": False,
-                "test_coverage_impact": True
+                "test_coverage_impact": True,
             },
             "recommendations": [
                 "Add tests for new features",
-                "Review modified core files"
-            ]
+                "Review modified core files",
+            ],
         },
         "push_readiness": {
             "ready": False,
             "score": 0.7,
             "blockers": ["Untracked files present"],
-            "warnings": ["Large changeset"]
+            "warnings": ["Large changeset"],
         },
         "summary": {
             "total_files_changed": 3,
             "total_lines_added": 15,
             "total_lines_removed": 3,
-            "estimated_review_time": "15 minutes"
-        }
+            "estimated_review_time": "15 minutes",
+        },
     }
 
 
@@ -553,10 +525,7 @@ def mock_server_context():
     """Mock server context for testing FastMCP integration."""
     context = Mock()
     context.session_id = "test-session-123"
-    context.client_info = {
-        "name": "test-client",
-        "version": "1.0.0"
-    }
+    context.client_info = {"name": "test-client", "version": "1.0.0"}
     context.request_id = "req-456"
     return context
 
@@ -567,56 +536,36 @@ def integration_test_scenarios():
     return {
         "clean_repo": {
             "description": "Repository with no changes",
-            "setup": {
-                "modified_files": [],
-                "untracked_files": [],
-                "staged_files": []
-            },
-            "expected": {
-                "changes_count": 0,
-                "risk_score": 0.0,
-                "push_ready": True
-            }
+            "setup": {"modified_files": [], "untracked_files": [], "staged_files": []},
+            "expected": {"changes_count": 0, "risk_score": 0.0, "push_ready": True},
         },
         "small_changes": {
             "description": "Small, low-risk changes",
             "setup": {
                 "modified_files": ["README.md"],
                 "untracked_files": [],
-                "staged_files": ["docs/changelog.md"]
+                "staged_files": ["docs/changelog.md"],
             },
-            "expected": {
-                "changes_count": 2,
-                "risk_score": 0.2,
-                "push_ready": True
-            }
+            "expected": {"changes_count": 2, "risk_score": 0.2, "push_ready": True},
         },
         "risky_changes": {
             "description": "High-risk configuration changes",
             "setup": {
                 "modified_files": ["config/production.json", "src/core/auth.py"],
                 "untracked_files": ["migration_script.sql"],
-                "staged_files": []
+                "staged_files": [],
             },
-            "expected": {
-                "changes_count": 3,
-                "risk_score": 0.9,
-                "push_ready": False
-            }
+            "expected": {"changes_count": 3, "risk_score": 0.9, "push_ready": False},
         },
         "large_changeset": {
             "description": "Large number of changes",
             "setup": {
                 "modified_files": [f"src/module_{i}.py" for i in range(20)],
                 "untracked_files": [f"new_file_{i}.py" for i in range(5)],
-                "staged_files": ["package.json", "requirements.txt"]
+                "staged_files": ["package.json", "requirements.txt"],
             },
-            "expected": {
-                "changes_count": 27,
-                "risk_score": 0.7,
-                "push_ready": False
-            }
-        }
+            "expected": {"changes_count": 27, "risk_score": 0.7, "push_ready": False},
+        },
     }
 
 
@@ -628,18 +577,20 @@ def create_mock_git_status(modified=None, untracked=None, staged=None, deleted=N
         "untracked": untracked or [],
         "staged": staged or [],
         "deleted": deleted or [],
-        "clean": not any([modified, untracked, staged, deleted])
+        "clean": not any([modified, untracked, staged, deleted]),
     }
 
 
-def create_mock_commit(hash_id=None, message=None, author=None, timestamp=None, files=None):
+def create_mock_commit(
+    hash_id=None, message=None, author=None, timestamp=None, files=None
+):
     """Create a mock commit object."""
     return {
         "hash": hash_id or "abc123def456",
         "message": message or "Test commit message",
         "author": author or "Test User",
         "timestamp": timestamp or datetime.now(),
-        "files": files or ["test_file.py"]
+        "files": files or ["test_file.py"],
     }
 
 
@@ -659,7 +610,7 @@ def commit_factory():
 __all__ = [
     "analyzer_config",
     "mock_git_client",
-    "mock_change_detector", 
+    "mock_change_detector",
     "mock_risk_assessor",
     "sample_repository_state",
     "mock_file_analyzer",
@@ -671,5 +622,5 @@ __all__ = [
     "mock_server_context",
     "integration_test_scenarios",
     "git_status_factory",
-    "commit_factory"
+    "commit_factory",
 ]

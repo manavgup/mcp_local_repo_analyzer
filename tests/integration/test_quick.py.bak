@@ -4,13 +4,13 @@ Quick test script for any git repository.
 Usage: python quick_test.py /path/to/git/repo
 """
 
-import pytest
 import asyncio
 import os
 import sys
 from pathlib import Path
-import httpx
 
+import httpx
+import pytest
 from fastmcp import Client
 from local_git_analyzer.main import create_server, register_tools
 

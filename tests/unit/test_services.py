@@ -1,4 +1,5 @@
 import pytest
+
 #!/usr/bin/env python3
 """
 Updated unit tests for the git analyzer services - Fixed version.
@@ -9,15 +10,13 @@ import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
-
+from mcp_local_repo_analyzer.services.git.change_detector import ChangeDetector
+from mcp_local_repo_analyzer.services.git.diff_analyzer import DiffAnalyzer
+from mcp_local_repo_analyzer.services.git.status_tracker import StatusTracker
 from mcp_shared_lib.config import GitAnalyzerSettings
 from mcp_shared_lib.models.git.changes import FileStatus, WorkingDirectoryChanges
 from mcp_shared_lib.models.git.repository import LocalRepository
 from mcp_shared_lib.services.git.git_client import GitClient
-
-from mcp_local_repo_analyzer.services.git.change_detector import ChangeDetector
-from mcp_local_repo_analyzer.services.git.diff_analyzer import DiffAnalyzer
-from mcp_local_repo_analyzer.services.git.status_tracker import StatusTracker
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -47,7 +46,9 @@ class TestGitClient:
             mock_process.returncode = 0
             mock_subprocess.return_value = mock_process
 
-            result = await self.git_client.execute_command(self.test_repo_path, ["status", "--porcelain"])
+            result = await self.git_client.execute_command(
+                self.test_repo_path, ["status", "--porcelain"]
+            )
 
             assert result == "test output"
             mock_subprocess.assert_called_once()
@@ -100,14 +101,31 @@ class TestChangeDetector:
         self.git_client.get_status = AsyncMock(
             return_value={
                 "files": [
-                    {"filename": "file1.py", "status_code": "M", "working_status": "M", "index_status": None},
-                    {"filename": "file2.py", "status_code": "A", "working_status": None, "index_status": "A"},
-                    {"filename": "file3.py", "status_code": "?", "working_status": "?", "index_status": None},
+                    {
+                        "filename": "file1.py",
+                        "status_code": "M",
+                        "working_status": "M",
+                        "index_status": None,
+                    },
+                    {
+                        "filename": "file2.py",
+                        "status_code": "A",
+                        "working_status": None,
+                        "index_status": "A",
+                    },
+                    {
+                        "filename": "file3.py",
+                        "status_code": "?",
+                        "working_status": "?",
+                        "index_status": None,
+                    },
                 ]
             }
         )
 
-        result = await self.change_detector.detect_working_directory_changes(self.test_repo)
+        result = await self.change_detector.detect_working_directory_changes(
+            self.test_repo
+        )
 
         assert isinstance(result, WorkingDirectoryChanges)
         assert result.total_files == 3
@@ -122,9 +140,24 @@ class TestChangeDetector:
         self.git_client.get_status = AsyncMock(
             return_value={
                 "files": [
-                    {"filename": "staged_file.py", "status_code": "A", "working_status": None, "index_status": "A"},
-                    {"filename": "untracked_file.py", "status_code": "?", "working_status": "?", "index_status": None},
-                    {"filename": "modified_staged.py", "status_code": "M", "working_status": None, "index_status": "M"},
+                    {
+                        "filename": "staged_file.py",
+                        "status_code": "A",
+                        "working_status": None,
+                        "index_status": "A",
+                    },
+                    {
+                        "filename": "untracked_file.py",
+                        "status_code": "?",
+                        "working_status": "?",
+                        "index_status": None,
+                    },
+                    {
+                        "filename": "modified_staged.py",
+                        "status_code": "M",
+                        "working_status": None,
+                        "index_status": "M",
+                    },
                 ]
             }
         )
@@ -155,8 +188,12 @@ class TestDiffAnalyzer:
         files = [
             FileStatus(path="src/main.py", status_code="M"),
             FileStatus(path="tests/test_main.py", status_code="M"),
-            FileStatus(path="README.md", status_code="M"),  # This should be documentation (README pattern)
-            FileStatus(path="config.json", status_code="M"),  # This should be configuration
+            FileStatus(
+                path="README.md", status_code="M"
+            ),  # This should be documentation (README pattern)
+            FileStatus(
+                path="config.json", status_code="M"
+            ),  # This should be configuration
             FileStatus(path="Dockerfile", status_code="M"),
         ]
 
@@ -182,8 +219,15 @@ class TestDiffAnalyzer:
     def test_assess_risk_low(self):
         """Test low risk assessment."""
         files = [
-            FileStatus(path="src/main.py", status_code="M", lines_added=10, lines_deleted=5),
-            FileStatus(path="tests/test_main.py", status_code="A", lines_added=20, lines_deleted=0),
+            FileStatus(
+                path="src/main.py", status_code="M", lines_added=10, lines_deleted=5
+            ),
+            FileStatus(
+                path="tests/test_main.py",
+                status_code="A",
+                lines_added=20,
+                lines_deleted=0,
+            ),
         ]
 
         risk = self.diff_analyzer.assess_risk(files)
@@ -194,8 +238,12 @@ class TestDiffAnalyzer:
     def test_assess_risk_high(self):
         """Test high risk assessment - Fixed expectations."""
         files = [
-            FileStatus(path="Dockerfile", status_code="M", lines_added=1500, lines_deleted=500),  # Large change
-            FileStatus(path="src/core.py", status_code="D", lines_added=0, lines_deleted=2000),  # Large change
+            FileStatus(
+                path="Dockerfile", status_code="M", lines_added=1500, lines_deleted=500
+            ),  # Large change
+            FileStatus(
+                path="src/core.py", status_code="D", lines_added=0, lines_deleted=2000
+            ),  # Large change
         ]
 
         risk = self.diff_analyzer.assess_risk(files)
@@ -298,14 +346,28 @@ async def integration_test():
 
             # Initialize a git repo for testing
             subprocess.run(["git", "init"], cwd=temp_path, capture_output=True)
-            subprocess.run(["git", "config", "user.name", "Test User"], cwd=temp_path, capture_output=True)
-            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=temp_path, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                cwd=temp_path,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=temp_path,
+                capture_output=True,
+            )
 
             # Create a test file and commit it
             test_file = temp_path / "test.txt"
             test_file.write_text("test content")
-            subprocess.run(["git", "add", "test.txt"], cwd=temp_path, capture_output=True)
-            subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=temp_path, capture_output=True)
+            subprocess.run(
+                ["git", "add", "test.txt"], cwd=temp_path, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial commit"],
+                cwd=temp_path,
+                capture_output=True,
+            )
 
             # Now test with our analyzer
             settings = GitAnalyzerSettings()

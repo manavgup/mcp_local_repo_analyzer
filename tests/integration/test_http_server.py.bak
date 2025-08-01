@@ -4,6 +4,7 @@ Test client for HTTP-based git analyzer server.
 """
 
 import asyncio
+
 import pytest
 from fastmcp import Client
 

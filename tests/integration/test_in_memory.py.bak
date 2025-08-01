@@ -7,10 +7,9 @@ This bypasses stdio transport issues by running server in same process.
 import asyncio
 import sys
 from pathlib import Path
+
 import pytest
-
 from fastmcp import Client
-
 from local_git_analyzer.main import create_server, register_tools
 
 # Add the project root to Python path so imports work

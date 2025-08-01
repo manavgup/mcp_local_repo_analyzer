@@ -4,7 +4,13 @@ import re
 
 from fastmcp.server.dependencies import get_context
 from mcp_shared_lib.config.git_analyzer import GitAnalyzerSettings
-from mcp_shared_lib.models import ChangeCategorization, DiffHunk, FileDiff, FileStatus, RiskAssessment
+from mcp_shared_lib.models import (
+    ChangeCategorization,
+    DiffHunk,
+    FileDiff,
+    FileStatus,
+    RiskAssessment,
+)
 from mcp_shared_lib.utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -40,14 +46,18 @@ class DiffAnalyzer:
 
     def parse_diff(self, diff_content: str) -> list[FileDiff]:
         """Parse diff content into FileDiff objects."""
-        self._log_if_context("debug", f"Parsing diff content ({len(diff_content)} characters)")
+        self._log_if_context(
+            "debug", f"Parsing diff content ({len(diff_content)} characters)"
+        )
 
         file_diffs = []
 
         # Split diff into files
         file_sections = re.split(r"^diff --git", diff_content, flags=re.MULTILINE)
 
-        self._log_if_context("debug", f"Found {len(file_sections)} file sections in diff")
+        self._log_if_context(
+            "debug", f"Found {len(file_sections)} file sections in diff"
+        )
 
         for i, section in enumerate(file_sections):
             if not section.strip():
@@ -58,11 +68,16 @@ class DiffAnalyzer:
                 if file_diff:
                     file_diffs.append(file_diff)
             except Exception as e:
-                self._log_if_context("warning", f"Failed to parse file diff section {i}: {str(e)}")
+                self._log_if_context(
+                    "warning", f"Failed to parse file diff section {i}: {str(e)}"
+                )
                 continue
 
         total_changes = sum(fd.total_changes for fd in file_diffs)
-        self._log_if_context("debug", f"Parsed {len(file_diffs)} file diffs with {total_changes} total changes")
+        self._log_if_context(
+            "debug",
+            f"Parsed {len(file_diffs)} file diffs with {total_changes} total changes",
+        )
 
         return file_diffs
 
@@ -87,7 +102,9 @@ class DiffAnalyzer:
                     file_path = parts[1]
 
         if not file_path:
-            self._log_if_context("warning", "Could not extract file path from diff section")
+            self._log_if_context(
+                "warning", "Could not extract file path from diff section"
+            )
             return None
 
         # Check if binary
@@ -140,10 +157,16 @@ class DiffAnalyzer:
                     new_lines = int(hunk_match.group(4)) if hunk_match.group(4) else 1
 
                     current_hunk = DiffHunk(
-                        old_start=old_start, old_lines=old_lines, new_start=new_start, new_lines=new_lines, content=""
+                        old_start=old_start,
+                        old_lines=old_lines,
+                        new_start=new_start,
+                        new_lines=new_lines,
+                        content="",
                     )
                     hunk_content = []
-            elif current_hunk and (line.startswith(" ") or line.startswith("+") or line.startswith("-")):
+            elif current_hunk and (
+                line.startswith(" ") or line.startswith("+") or line.startswith("-")
+            ):
                 hunk_content.append(line)
 
         # Save last hunk
@@ -197,7 +220,9 @@ class DiffAnalyzer:
         )
 
         if critical_files:
-            self._log_if_context("warning", f"Critical files changed: {', '.join(critical_files[:3])}")
+            self._log_if_context(
+                "warning", f"Critical files changed: {', '.join(critical_files[:3])}"
+            )
 
         return categories
 
@@ -276,9 +301,14 @@ class DiffAnalyzer:
             binary_changes=binary_changes,
         )
 
-        self._log_if_context("info", f"Risk assessment: {risk_level} risk ({risk_assessment.risk_score}/10)")
+        self._log_if_context(
+            "info",
+            f"Risk assessment: {risk_level} risk ({risk_assessment.risk_score}/10)",
+        )
         if risk_level == "high":
-            self._log_if_context("warning", f"High-risk factors: {', '.join(risk_factors)}")
+            self._log_if_context(
+                "warning", f"High-risk factors: {', '.join(risk_factors)}"
+            )
         elif len(risk_factors) > 0:
             self._log_if_context("debug", f"Risk factors: {', '.join(risk_factors)}")
 
@@ -373,7 +403,18 @@ class DiffAnalyzer:
 
     def _is_configuration(self, file_path: str) -> bool:
         """Check if file is configuration."""
-        config_extensions = [".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".properties", ".xml", ".env"]
+        config_extensions = [
+            ".json",
+            ".yaml",
+            ".yml",
+            ".toml",
+            ".ini",
+            ".cfg",
+            ".conf",
+            ".properties",
+            ".xml",
+            ".env",
+        ]
         config_patterns = ["config", "settings", ".env"]
 
         path_lower = file_path.lower()
@@ -402,10 +443,22 @@ class DiffAnalyzer:
             # Certain file types are more prone to conflicts
             any(
                 file_status.path.endswith(ext)
-                for ext in [".json", ".xml", ".yaml", ".yml", ".lock", "package-lock.json", "yarn.lock", "poetry.lock"]
+                for ext in [
+                    ".json",
+                    ".xml",
+                    ".yaml",
+                    ".yml",
+                    ".lock",
+                    "package-lock.json",
+                    "yarn.lock",
+                    "poetry.lock",
+                ]
             ),
             # Files in common conflict-prone directories
-            any(pattern in file_status.path.lower() for pattern in ["migration", "schema", "database", "config"]),
+            any(
+                pattern in file_status.path.lower()
+                for pattern in ["migration", "schema", "database", "config"]
+            ),
         ]
 
         return any(conflict_indicators)
@@ -442,11 +495,18 @@ class DiffAnalyzer:
                 "total_additions": total_additions,
                 "total_deletions": total_deletions,
                 "total_changes": total_changes,
-                "average_changes_per_file": total_changes / len(changes) if changes else 0,
+                "average_changes_per_file": total_changes / len(changes)
+                if changes
+                else 0,
             },
             "file_types": file_types,
             "most_changed_files": [
-                {"path": f.path, "changes": f.total_changes, "status": f.status_description} for f in most_changed
+                {
+                    "path": f.path,
+                    "changes": f.total_changes,
+                    "status": f.status_description,
+                }
+                for f in most_changed
             ],
             "patterns": {
                 "has_critical_changes": categories.has_critical_changes,

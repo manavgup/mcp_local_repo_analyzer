@@ -4,8 +4,13 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp import Context, FastMCP
-from mcp_shared_lib.models import FileStatus, LocalRepository, StagedChanges, BranchStatus
-from mcp_shared_lib.models import WorkingDirectoryChanges
+from mcp_shared_lib.models import (
+    BranchStatus,
+    FileStatus,
+    LocalRepository,
+    StagedChanges,
+    WorkingDirectoryChanges,
+)
 from mcp_shared_lib.utils import find_git_root, is_git_repository
 from pydantic import Field
 
@@ -16,16 +21,24 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
     @mcp.tool()
     async def analyze_working_directory(
         ctx: Context,
-        repository_path: str = Field(default=".", description="Path to git repository (default: current directory)"),
-        include_diffs: bool = Field(True, description="Include diff content in analysis"),
-        max_diff_lines: int = Field(100, ge=10, le=1000, description="Maximum lines per diff to include"),
+        repository_path: str = Field(
+            default=".",
+            description="Path to git repository (default: current directory)",
+        ),
+        include_diffs: bool = Field(
+            True, description="Include diff content in analysis"
+        ),
+        max_diff_lines: int = Field(
+            100, ge=10, le=1000, description="Maximum lines per diff to include"
+        ),
     ) -> dict[str, Any]:
         """Analyze uncommitted changes in working directory."""
 
         import time
         from pathlib import Path
-        from mcp_shared_lib.models.analysis.results import OutstandingChangesAnalysis
+
         from mcp_shared_lib.models.analysis.repository import RepositoryStatus
+        from mcp_shared_lib.models.analysis.results import OutstandingChangesAnalysis
 
         start_time = time.time()
         await ctx.info(f"Starting working directory analysis for: {repository_path}")
@@ -56,7 +69,9 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.debug("Detecting working directory changes")
 
             # Detect working directory changes - returns WorkingDirectoryChanges model
-            changes = await mcp.change_detector.detect_working_directory_changes(repo, ctx)
+            changes = await mcp.change_detector.detect_working_directory_changes(
+                repo, ctx
+            )
 
             await ctx.report_progress(2, 4)
             await ctx.info(f"Found {changes.total_files} changed files")
@@ -71,10 +86,12 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             risk_assessment = mcp.diff_analyzer.assess_risk(changes.all_files)
 
             # Create RepositoryStatus model
-            repository_status = RepositoryStatus(repository=repo,
-                                                 working_directory=working_dir_status,
-                                                 staged_changes=StagedChanges(staged_files=[]),
-                                                 branch_status=BranchStatus(current_branch=repo.current_branch))
+            repository_status = RepositoryStatus(
+                repository=repo,
+                working_directory=working_dir_status,
+                staged_changes=StagedChanges(staged_files=[]),
+                branch_status=BranchStatus(current_branch=repo.current_branch),
+            )
 
             # Create OutstandingChangesAnalysis model
             analysis = OutstandingChangesAnalysis(
@@ -96,28 +113,42 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
 
             # Add diffs if requested
             if include_diffs and changes.has_changes:
-                await ctx.debug(f"Generating diffs for {min(10, len(changes.all_files))} files")
-                diffs = await _get_file_diffs(mcp, repo_path, changes.all_files[:10], max_diff_lines, ctx)
+                await ctx.debug(
+                    f"Generating diffs for {min(10, len(changes.all_files))} files"
+                )
+                diffs = await _get_file_diffs(
+                    mcp, repo_path, changes.all_files[:10], max_diff_lines, ctx
+                )
                 result["diffs"] = diffs
 
             await ctx.report_progress(4, 4)
             duration = time.time() - start_time
-            await ctx.info(f"Working directory analysis completed in {duration:.2f} seconds")
+            await ctx.info(
+                f"Working directory analysis completed in {duration:.2f} seconds"
+            )
 
             return result
 
         except Exception as e:
             duration = time.time() - start_time
-            await ctx.error(f"Working directory analysis failed after {duration:.2f} seconds: {str(e)}")
+            await ctx.error(
+                f"Working directory analysis failed after {duration:.2f} seconds: {str(e)}"
+            )
             return {"error": f"Failed to analyze working directory: {str(e)}"}
 
     @mcp.tool()
     async def get_file_diff(
         ctx: Context,
-        file_path: str = Field(..., description="Path to specific file relative to repository root"),
+        file_path: str = Field(
+            ..., description="Path to specific file relative to repository root"
+        ),
         repository_path: str = Field(default=".", description="Path to git repository"),
-        staged: bool = Field(False, description="Get staged diff instead of working tree diff"),
-        max_lines: int = Field(200, ge=10, le=2000, description="Maximum lines to include in diff"),
+        staged: bool = Field(
+            False, description="Get staged diff instead of working tree diff"
+        ),
+        max_lines: int = Field(
+            200, ge=10, le=2000, description="Maximum lines to include in diff"
+        ),
     ) -> dict[str, Any]:
         """Get detailed diff for a specific file.
 
@@ -184,11 +215,17 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.debug(f"Executing git diff command for {file_path}")
 
             # Get diff from git
-            diff_content = await mcp.git_client.get_diff(repo_path, staged=staged, file_path=file_path, ctx=ctx)
+            diff_content = await mcp.git_client.get_diff(
+                repo_path, staged=staged, file_path=file_path, ctx=ctx
+            )
 
             if not diff_content.strip():
                 await ctx.debug(f"No changes found for file: {file_path}")
-                return {"file_path": file_path, "has_changes": False, "message": "No changes found for this file"}
+                return {
+                    "file_path": file_path,
+                    "has_changes": False,
+                    "message": "No changes found for this file",
+                }
 
             await ctx.debug("Parsing diff content")
 
@@ -196,7 +233,9 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             file_diffs = mcp.diff_analyzer.parse_diff(diff_content)
 
             if not file_diffs:
-                await ctx.warning(f"Failed to parse diff for {file_path}, returning raw content")
+                await ctx.warning(
+                    f"Failed to parse diff for {file_path}, returning raw content"
+                )
                 return {
                     "file_path": file_path,
                     "has_changes": False,
@@ -209,12 +248,18 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             if len(diff_content.split("\n")) > max_lines:
                 lines = diff_content.split("\n")
                 truncated_diff = "\n".join(lines[:max_lines])
-                truncated_diff += f"\n... (truncated, {len(lines) - max_lines} more lines)"
-                await ctx.debug(f"Truncated diff from {len(lines)} to {max_lines} lines")
+                truncated_diff += (
+                    f"\n... (truncated, {len(lines) - max_lines} more lines)"
+                )
+                await ctx.debug(
+                    f"Truncated diff from {len(lines)} to {max_lines} lines"
+                )
             else:
                 truncated_diff = diff_content
 
-            await ctx.info(f"Successfully generated diff for {file_path} ({file_diff.total_changes} total changes)")
+            await ctx.info(
+                f"Successfully generated diff for {file_path} ({file_diff.total_changes} total changes)"
+            )
 
             return {
                 "file_path": file_diff.file_path,
@@ -239,7 +284,9 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
     async def get_untracked_files(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
-        include_ignored: bool = Field(False, description="Include ignored files in the list"),
+        include_ignored: bool = Field(
+            False, description="Include ignored files in the list"
+        ),
     ) -> dict[str, Any]:
         """Get list of untracked files.
 
@@ -290,10 +337,19 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             repo_path = git_root
 
         try:
-            repo = LocalRepository(path=repo_path, name=repo_path.name, current_branch="main", head_commit="unknown")
+            repo = LocalRepository(
+                path=repo_path,
+                name=repo_path.name,
+                current_branch="main",
+                head_commit="unknown",
+            )
 
-            await ctx.debug("Detecting working directory changes to find untracked files")
-            changes: WorkingDirectoryChanges = await mcp.change_detector.detect_working_directory_changes(repo, ctx)
+            await ctx.debug(
+                "Detecting working directory changes to find untracked files"
+            )
+            changes: WorkingDirectoryChanges = (
+                await mcp.change_detector.detect_working_directory_changes(repo, ctx)
+            )
 
             untracked_files = [_format_file_status(f) for f in changes.untracked_files]
 
@@ -339,13 +395,20 @@ async def _get_file_diffs(
             if file_status.is_binary:
                 await ctx.debug(f"Skipping binary file: {file_status.path}")
                 diffs.append(
-                    {"file_path": file_status.path, "is_binary": True, "message": "Binary file - no diff available"}
+                    {
+                        "file_path": file_status.path,
+                        "is_binary": True,
+                        "message": "Binary file - no diff available",
+                    }
                 )
                 continue
 
             await ctx.debug(f"Getting diff for file: {file_status.path}")
             diff_content = await mcp.git_client.get_diff(
-                repo_path, staged=file_status.staged, file_path=file_status.path, ctx=ctx
+                repo_path,
+                staged=file_status.staged,
+                file_path=file_status.path,
+                ctx=ctx,
             )
 
             if diff_content.strip():
@@ -355,11 +418,22 @@ async def _get_file_diffs(
                     diff_content = "\n".join(lines[:max_lines])
                     diff_content += "\n... (truncated)"
 
-                diffs.append({"file_path": file_status.path, "diff_content": diff_content, "is_binary": False})
+                diffs.append(
+                    {
+                        "file_path": file_status.path,
+                        "diff_content": diff_content,
+                        "is_binary": False,
+                    }
+                )
 
         except Exception as e:
             await ctx.warning(f"Failed to get diff for {file_status.path}: {str(e)}")
-            diffs.append({"file_path": file_status.path, "error": f"Failed to get diff: {str(e)}"})
+            diffs.append(
+                {
+                    "file_path": file_status.path,
+                    "error": f"Failed to get diff: {str(e)}",
+                }
+            )
 
     await ctx.report_progress(total_files, total_files)
     return diffs

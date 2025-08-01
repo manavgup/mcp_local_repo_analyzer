@@ -17,8 +17,13 @@ def register_unpushed_commits_tools(mcp: FastMCP):
     async def analyze_unpushed_commits(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
-        branch: str | None = Field(None, description="Specific branch to analyze (default: current branch)"),
-        max_commits: int = Field(20, ge=1, le=100, description="Maximum number of commits to analyze"),
+        branch: str
+        | None = Field(
+            None, description="Specific branch to analyze (default: current branch)"
+        ),
+        max_commits: int = Field(
+            20, ge=1, le=100, description="Maximum number of commits to analyze"
+        ),
     ) -> dict[str, Any]:
         """Analyze commits that haven't been pushed to remote.
 
@@ -106,20 +111,27 @@ def register_unpushed_commits_tools(mcp: FastMCP):
             await ctx.debug("Creating repository model")
 
             repo = LocalRepository(
-                path=repo_path, name=repo_path.name, current_branch=current_branch, head_commit="unknown"
+                path=repo_path,
+                name=repo_path.name,
+                current_branch=current_branch,
+                head_commit="unknown",
             )
 
             await ctx.report_progress(2, 5)
             await ctx.debug("Detecting unpushed commits")
 
             # Use existing UnpushedCommit model
-            unpushed_commits = await mcp.change_detector.detect_unpushed_commits(repo, ctx)
+            unpushed_commits = await mcp.change_detector.detect_unpushed_commits(
+                repo, ctx
+            )
 
             # Limit commits if requested
             original_count = len(unpushed_commits)
             if len(unpushed_commits) > max_commits:
                 unpushed_commits = unpushed_commits[:max_commits]
-                await ctx.info(f"Limited results to {max_commits} commits (total found: {original_count})")
+                await ctx.info(
+                    f"Limited results to {max_commits} commits (total found: {original_count})"
+                )
 
             await ctx.report_progress(3, 5)
             await ctx.debug(f"Processing {len(unpushed_commits)} commits")
@@ -179,13 +191,17 @@ def register_unpushed_commits_tools(mcp: FastMCP):
 
         except Exception as e:
             duration = time.time() - start_time
-            await ctx.error(f"Unpushed commits analysis failed after {duration:.2f} seconds: {str(e)}")
+            await ctx.error(
+                f"Unpushed commits analysis failed after {duration:.2f} seconds: {str(e)}"
+            )
             return {"error": f"Failed to analyze unpushed commits: {str(e)}"}
 
     @mcp.tool()
     async def compare_with_remote(
         ctx: Context,
-        remote_name: str = Field("origin", description="Remote name to compare against"),
+        remote_name: str = Field(
+            "origin", description="Remote name to compare against"
+        ),
         repository_path: str = Field(default=".", description="Path to git repository"),
     ) -> dict[str, Any]:
         """Compare local branch with remote branch.
@@ -245,7 +261,9 @@ def register_unpushed_commits_tools(mcp: FastMCP):
         - `sync_priority="high"`: Urgent sync → prioritize sync operations
         - `is_up_to_date=True`: Already synced → focus on local development
         """
-        await ctx.info(f"Comparing local branch with remote '{remote_name}' for: {repository_path}")
+        await ctx.info(
+            f"Comparing local branch with remote '{remote_name}' for: {repository_path}"
+        )
 
         repo_path = Path(repository_path).resolve()
         if not is_git_repository(repo_path):
@@ -290,11 +308,15 @@ def register_unpushed_commits_tools(mcp: FastMCP):
             elif branch_status.ahead_by > 5:
                 sync_priority = "medium"  # Many commits ahead
                 sync_recommendation = "Push commits to remote"
-                await ctx.info(f"Branch is {branch_status.ahead_by} commits ahead - consider pushing")
+                await ctx.info(
+                    f"Branch is {branch_status.ahead_by} commits ahead - consider pushing"
+                )
             elif branch_status.behind_by > 5:
                 sync_priority = "medium"  # Many commits behind
                 sync_recommendation = "Pull latest changes"
-                await ctx.info(f"Branch is {branch_status.behind_by} commits behind - consider pulling")
+                await ctx.info(
+                    f"Branch is {branch_status.behind_by} commits behind - consider pulling"
+                )
             elif branch_status.ahead_by > 0:
                 sync_priority = "low"  # Few commits ahead
                 sync_recommendation = "Push when ready"
@@ -330,9 +352,15 @@ def register_unpushed_commits_tools(mcp: FastMCP):
     async def analyze_commit_history(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
-        since: str | None = Field(None, description="Analyze commits since date (YYYY-MM-DD) or commit SHA"),
-        author: str | None = Field(None, description="Filter commits by author name or email"),
-        max_commits: int = Field(50, ge=1, le=200, description="Maximum number of commits to analyze"),
+        since: str
+        | None = Field(
+            None, description="Analyze commits since date (YYYY-MM-DD) or commit SHA"
+        ),
+        author: str
+        | None = Field(None, description="Filter commits by author name or email"),
+        max_commits: int = Field(
+            50, ge=1, le=200, description="Maximum number of commits to analyze"
+        ),
     ) -> dict[str, Any]:
         """Analyze recent commit history.
 
@@ -415,7 +443,12 @@ def register_unpushed_commits_tools(mcp: FastMCP):
 
         try:
             await ctx.debug("Creating repository model")
-            repo = LocalRepository(path=repo_path, name=repo_path.name, current_branch="main", head_commit="unknown")
+            repo = LocalRepository(
+                path=repo_path,
+                name=repo_path.name,
+                current_branch="main",
+                head_commit="unknown",
+            )
 
             await ctx.debug("Getting unpushed commits for analysis")
             # Get unpushed commits (this is our main commit source for now)
@@ -431,31 +464,49 @@ def register_unpushed_commits_tools(mcp: FastMCP):
                 filtered_commits = [
                     c
                     for c in filtered_commits
-                    if author.lower() in c.author.lower() or author.lower() in c.author_email.lower()
+                    if author.lower() in c.author.lower()
+                    or author.lower() in c.author_email.lower()
                 ]
-                await ctx.info(f"Author filter reduced commits from {original_count} to {len(filtered_commits)}")
+                await ctx.info(
+                    f"Author filter reduced commits from {original_count} to {len(filtered_commits)}"
+                )
 
             # TODO: Add date filtering when 'since' is provided
             if since:
-                await ctx.warning("Date filtering not yet implemented - ignoring 'since' parameter")
+                await ctx.warning(
+                    "Date filtering not yet implemented - ignoring 'since' parameter"
+                )
 
             # Limit results
             original_count = len(filtered_commits)
             if len(filtered_commits) > max_commits:
                 filtered_commits = filtered_commits[:max_commits]
-                await ctx.info(f"Limited results to {max_commits} commits (filtered total: {original_count})")
+                await ctx.info(
+                    f"Limited results to {max_commits} commits (filtered total: {original_count})"
+                )
 
             await ctx.debug("Analyzing commit patterns and statistics")
 
             # Analyze patterns
             authors_stats = {}
             daily_commits = {}
-            message_patterns = {"fix": 0, "feat": 0, "docs": 0, "test": 0, "refactor": 0, "other": 0}
+            message_patterns = {
+                "fix": 0,
+                "feat": 0,
+                "docs": 0,
+                "test": 0,
+                "refactor": 0,
+                "other": 0,
+            }
 
             for commit in filtered_commits:
                 # Author stats
                 if commit.author not in authors_stats:
-                    authors_stats[commit.author] = {"commits": 0, "insertions": 0, "deletions": 0}
+                    authors_stats[commit.author] = {
+                        "commits": 0,
+                        "insertions": 0,
+                        "deletions": 0,
+                    }
                 authors_stats[commit.author]["commits"] += 1
                 authors_stats[commit.author]["insertions"] += commit.insertions
                 authors_stats[commit.author]["deletions"] += commit.deletions
@@ -474,17 +525,25 @@ def register_unpushed_commits_tools(mcp: FastMCP):
                     message_patterns["docs"] += 1
                 elif any(word in msg_lower for word in ["test", "spec"]):
                     message_patterns["test"] += 1
-                elif any(word in msg_lower for word in ["refactor", "clean", "improve"]):
+                elif any(
+                    word in msg_lower for word in ["refactor", "clean", "improve"]
+                ):
                     message_patterns["refactor"] += 1
                 else:
                     message_patterns["other"] += 1
 
             duration = time.time() - start_time
-            await ctx.info(f"Commit history analysis completed in {duration:.2f} seconds")
+            await ctx.info(
+                f"Commit history analysis completed in {duration:.2f} seconds"
+            )
 
             return {
                 "repository_path": str(repo_path),
-                "analysis_filters": {"since": since, "author": author, "max_commits": max_commits},
+                "analysis_filters": {
+                    "since": since,
+                    "author": author,
+                    "max_commits": max_commits,
+                },
                 "total_commits_found": len(all_commits),
                 "commits_analyzed": len(filtered_commits),
                 "statistics": {
@@ -492,7 +551,8 @@ def register_unpushed_commits_tools(mcp: FastMCP):
                     "total_insertions": sum(c.insertions for c in filtered_commits),
                     "total_deletions": sum(c.deletions for c in filtered_commits),
                     "average_changes_per_commit": (
-                        sum(c.total_changes for c in filtered_commits) / len(filtered_commits)
+                        sum(c.total_changes for c in filtered_commits)
+                        / len(filtered_commits)
                         if filtered_commits
                         else 0
                     ),
@@ -514,5 +574,7 @@ def register_unpushed_commits_tools(mcp: FastMCP):
 
         except Exception as e:
             duration = time.time() - start_time
-            await ctx.error(f"Commit history analysis failed after {duration:.2f} seconds: {str(e)}")
+            await ctx.error(
+                f"Commit history analysis failed after {duration:.2f} seconds: {str(e)}"
+            )
             return {"error": f"Failed to analyze commit history: {str(e)}"}

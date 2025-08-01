@@ -1,10 +1,10 @@
 """Service for tracking repository status and health."""
 
-from typing import Any, TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
+from mcp_local_repo_analyzer.services.git import ChangeDetector
 from mcp_shared_lib.models import BranchStatus, LocalRepository, RepositoryStatus
 from mcp_shared_lib.services import GitClient
-from mcp_local_repo_analyzer.services.git import ChangeDetector
 
 if TYPE_CHECKING:
     from fastmcp import Context
@@ -17,10 +17,14 @@ class StatusTracker:
         self.git_client = git_client
         self.change_detector = change_detector
 
-    async def get_repository_status(self, repo: LocalRepository, ctx: Optional["Context"] = None) -> RepositoryStatus:
+    async def get_repository_status(
+        self, repo: LocalRepository, ctx: Optional["Context"] = None
+    ) -> RepositoryStatus:
         """Get complete repository status."""
         # Get all types of changes
-        working_directory = await self.change_detector.detect_working_directory_changes(repo, ctx)
+        working_directory = await self.change_detector.detect_working_directory_changes(
+            repo, ctx
+        )
         staged_changes = await self.change_detector.detect_staged_changes(repo, ctx)
         unpushed_commits = await self.change_detector.detect_unpushed_commits(repo, ctx)
         stashed_changes = await self.change_detector.detect_stashed_changes(repo, ctx)
@@ -37,7 +41,9 @@ class StatusTracker:
             branch_status=branch_status,
         )
 
-    async def get_branch_status(self, repo: LocalRepository, ctx: Optional["Context"] = None) -> BranchStatus:
+    async def get_branch_status(
+        self, repo: LocalRepository, ctx: Optional["Context"] = None
+    ) -> BranchStatus:
         """Get branch status information."""
         branch_info = await self.git_client.get_branch_info(repo.path, ctx)
 
@@ -58,7 +64,9 @@ class StatusTracker:
             needs_pull=needs_pull,
         )
 
-    async def get_health_metrics(self, repo: LocalRepository, ctx: Optional["Context"] = None) -> dict[str, Any]:
+    async def get_health_metrics(
+        self, repo: LocalRepository, ctx: Optional["Context"] = None
+    ) -> dict[str, Any]:
         """Get repository health metrics."""
         status = await self.get_repository_status(repo, ctx)
 
