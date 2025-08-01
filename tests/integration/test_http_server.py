@@ -1,15 +1,13 @@
-import pytest
-#!/usr/bin/env python3
-"""
-Test client for HTTP-based git analyzer server.
-"""
+# Test client for HTTP-based git analyzer server.
+# Usage: Run 'python run_http_server.py' to start server before testing.
 
 import asyncio
+import pytest
 from fastmcp import Client
-
 
 @pytest.mark.skip(reason="Requires HTTP server running on localhost:8000 - start with 'python run_http_server.py'")
 @pytest.mark.asyncio
+@pytest.mark.integration
 async def test_http_server():
     """Test the HTTP server."""
     # Connect to HTTP server

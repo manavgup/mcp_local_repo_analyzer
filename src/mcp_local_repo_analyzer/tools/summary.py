@@ -154,6 +154,13 @@ def register_summary_tools(mcp: FastMCP):
             await ctx.report_progress(5, 6)
             await ctx.debug("Compiling final results")
 
+            # --- IMPORTANT FIX HERE: Calculate actual unstaged working directory changes ---
+            actual_unstaged_count = 0
+            for f in repo_status.working_directory.all_files:
+                if not f.staged:
+                    actual_unstaged_count += 1
+            # -----------------------------------------------------------------------------
+
             result = {
                 "repository_path": str(repo_path),
                 "repository_name": repo.name,
@@ -162,12 +169,12 @@ def register_summary_tools(mcp: FastMCP):
                 "has_outstanding_work": repo_status.has_outstanding_work,
                 "total_outstanding_changes": repo_status.total_outstanding_changes,
                 "summary": summary_text,
-                "quick_stats": {
-                    "working_directory_changes": repo_status.working_directory.total_files,
-                    "staged_changes": repo_status.staged_changes.total_staged,
-                    "unpushed_commits": len(repo_status.unpushed_commits),
-                    "stashed_changes": len(repo_status.stashed_changes),
-                },
+            "quick_stats": {
+                "working_directory_changes": sum(1 for f in repo_status.working_directory.all_files if not f.staged),
+                "staged_changes": repo_status.staged_changes.total_staged,
+                "unpushed_commits": len(repo_status.unpushed_commits),
+                "stashed_changes": len(repo_status.stashed_changes),
+            },
                 "branch_status": {
                     "current": repo_status.branch_status.current_branch,
                     "upstream": repo_status.branch_status.upstream_branch,
@@ -191,6 +198,8 @@ def register_summary_tools(mcp: FastMCP):
                 await ctx.debug("Adding detailed breakdown to results")
                 result["detailed_breakdown"] = {
                     "working_directory": {
+                        # These counts should align with the _actual_ counts from detect_working_directory_changes,
+                        # which includes both staged and unstaged. The 'quick_stats' are the curated view.
                         "modified": len(repo_status.working_directory.modified_files),
                         "added": len(repo_status.working_directory.added_files),
                         "deleted": len(repo_status.working_directory.deleted_files),
@@ -324,6 +333,11 @@ def register_summary_tools(mcp: FastMCP):
                 health_score -= 20
                 issues.append("Uncommitted changes in working directory")
                 await ctx.warning("Uncommitted changes detected")
+
+            if health_metrics["staged_changes_count"] > 0:
+                health_score -= 15
+                issues.append(f"{health_metrics['staged_changes_count']} staged changes not committed")
+                await ctx.warning(f"Staged changes detected")
 
             if health_metrics["unpushed_commits_count"] > 5:
                 health_score -= 15
@@ -854,10 +868,9 @@ def _create_summary_text(
     if not repo_status.has_outstanding_work:
         return "✅ Repository is clean - no outstanding changes detected."
 
-    # Working directory
-    if repo_status.working_directory.has_changes:
-        wd = repo_status.working_directory
-        parts.append(f"📝 {wd.total_files} file(s) with uncommitted changes")
+    # Now, repo_status.working_directory.total_files already represents only UNSTAGED changes
+    if repo_status.working_directory.total_files > 0: 
+        parts.append(f"📝 {repo_status.working_directory.total_files} file(s) with uncommitted changes")
 
     # Staged changes
     if repo_status.staged_changes.ready_to_commit:

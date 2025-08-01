@@ -66,6 +66,7 @@ class StatusTracker:
             "total_outstanding_files": status.total_outstanding_changes,
             "has_uncommitted_changes": status.working_directory.has_changes,
             "has_staged_changes": status.staged_changes.ready_to_commit,
+            "staged_changes_count": status.staged_changes.total_staged,
             "unpushed_commits_count": len(status.unpushed_commits),
             "stashed_changes_count": len(status.stashed_changes),
             "branch_sync_status": status.branch_status.sync_status,
