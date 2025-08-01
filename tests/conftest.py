@@ -14,7 +14,7 @@ import pytest
 # Import shared fixtures from mcp_shared_lib
 
 try:
-    from git import GitCommandError, Repo
+    from git import Repo
 
     HAS_GIT = True
 except ImportError:
