@@ -887,7 +887,7 @@ def register_summary_tools(mcp: FastMCP):
 def _generate_recommendations(
     repo_status: RepositoryStatus,
     risk_assessment: RiskAssessment,
-    categories: ChangeCategorization,
+    _categories: ChangeCategorization,
 ) -> list[str]:
     """Generate recommendations based on repository status."""
     recommendations = []
@@ -971,7 +971,7 @@ def _create_summary_text(
 
 
 def _generate_health_recommendations(
-    health_metrics: dict[str, Any], issues: list[str]
+    _health_metrics: dict[str, Any], issues: list[str]
 ) -> list[str]:
     """Generate health improvement recommendations."""
     recommendations = []

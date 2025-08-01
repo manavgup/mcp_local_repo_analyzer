@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 Enhanced test client for the Local Git Changes Analyzer FastMCP server.

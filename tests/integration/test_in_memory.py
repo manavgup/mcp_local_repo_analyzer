@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from fastmcp import Client
+
 from mcp_local_repo_analyzer.main import create_server, register_tools
 
 # Add the project root to Python path so imports work

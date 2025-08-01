@@ -10,13 +10,14 @@ import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
-from mcp_local_repo_analyzer.services.git.change_detector import ChangeDetector
-from mcp_local_repo_analyzer.services.git.diff_analyzer import DiffAnalyzer
-from mcp_local_repo_analyzer.services.git.status_tracker import StatusTracker
 from mcp_shared_lib.config import GitAnalyzerSettings
 from mcp_shared_lib.models.git.changes import FileStatus, WorkingDirectoryChanges
 from mcp_shared_lib.models.git.repository import LocalRepository
 from mcp_shared_lib.services.git.git_client import GitClient
+
+from mcp_local_repo_analyzer.services.git.change_detector import ChangeDetector
+from mcp_local_repo_analyzer.services.git.diff_analyzer import DiffAnalyzer
+from mcp_local_repo_analyzer.services.git.status_tracker import StatusTracker
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))

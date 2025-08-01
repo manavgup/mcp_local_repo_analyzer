@@ -29,7 +29,7 @@ _initialization_lock = asyncio.Lock()
 
 
 @asynccontextmanager
-async def lifespan(app):
+async def lifespan(_app):
     """Manage server lifecycle for proper startup and shutdown."""
     global _server_initialized
     logger.info("FastMCP server starting up...")
@@ -80,7 +80,7 @@ def create_server() -> tuple[FastMCP, dict]:
 
         # Add health check endpoints for HTTP mode
         @mcp.custom_route("/health", methods=["GET"])
-        async def health_check(request: Request) -> JSONResponse:
+        async def health_check(_request: Request) -> JSONResponse:
             return JSONResponse(
                 {
                     "status": "ok",
@@ -91,7 +91,7 @@ def create_server() -> tuple[FastMCP, dict]:
             )
 
         @mcp.custom_route("/healthz", methods=["GET"])
-        async def health_check_z(request: Request) -> JSONResponse:
+        async def health_check_z(_request: Request) -> JSONResponse:
             return JSONResponse(
                 {
                     "status": "ok",
