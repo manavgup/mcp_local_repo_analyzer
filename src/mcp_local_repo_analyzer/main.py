@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Enhanced main.py with both STDIO and HTTP transport support."""
 
+import os
 import asyncio
 import sys
 import argparse
@@ -58,7 +59,7 @@ def create_server() -> tuple[FastMCP, dict]:
         # Create the FastMCP server with proper lifecycle management
         mcp = FastMCP(
             name="Local Git Changes Analyzer",
-            version="1.0.0",
+            # Removed version argument because FastMCP.__init__ does not accept it
             lifespan=lifespan,
             instructions=""" \
             This server analyzes outstanding local git changes that haven't made their way to GitHub yet.
@@ -199,110 +200,11 @@ def register_tools(mcp: FastMCP):
         raise
 
 
-async def run_stdio_server():
-    """Run the server in STDIO mode for direct MCP client connections."""
-    try:
-        logger.info("=== Starting Local Git Changes Analyzer (STDIO) ===")
-        logger.info(f"Python version: {sys.version}")
-        logger.info(f"Working directory: {sys.path[0] if sys.path else 'unknown'}")
-        
-        # Create server and services
-        logger.info("Creating server and services...")
-        mcp, services = create_server()
-
-        # Store services in the server context for tools to access
-        logger.info("Setting up server context...")
-        mcp.git_client = services['git_client']
-        mcp.change_detector = services['change_detector']
-        mcp.diff_analyzer = services['diff_analyzer']
-        mcp.status_tracker = services['status_tracker']
-        logger.info("Server context configured")
-
-        # Register tools
-        logger.info("Registering tools...")
-        register_tools(mcp)
-        logger.info("Tools registration completed")
-
-        # Run the server with enhanced error handling
-        try:
-            logger.info("Starting FastMCP server in stdio mode...")
-            logger.info("Server is ready to receive MCP messages")
-            # Use run_async instead of run for better async handling
-            await mcp.run_async(transport="stdio")
-        except (BrokenPipeError, EOFError) as e:
-            # Handle stdio stream closure gracefully
-            logger.info(f"Input stream closed ({type(e).__name__}), shutting down server gracefully")
-        except ConnectionResetError as e:
-            # Handle connection reset gracefully
-            logger.info(f"Connection reset ({e}), shutting down server gracefully")
-        except KeyboardInterrupt:
-            logger.info("Server stopped by user (KeyboardInterrupt)")
-        except Exception as e:
-            logger.error(f"Server runtime error: {e}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            sys.exit(1)
-
-    except KeyboardInterrupt:
-        logger.info("Server stopped by user during initialization")
-    except Exception as e:
-        logger.error(f"Server initialization error: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        sys.exit(1)
-
-
-def run_http_server(host: str = "127.0.0.1", port: int = 9070, transport: str = "streamable-http"):
-    """Run the server in HTTP mode for MCP Gateway integration."""
-    logger.info(f"=== Starting Local Git Changes Analyzer (HTTP) ===")
-    logger.info(f"🌐 Transport: {transport}")
-    logger.info(f"🌐 Endpoint: http://{host}:{port}/mcp")
-    logger.info(f"🏥 Health: http://{host}:{port}/health")
-    
-    try:
-        # Create server and services
-        logger.info("Creating server and services...")
-        mcp, services = create_server()
-
-        # Store services in the server context for tools to access
-        logger.info("Setting up server context...")
-        mcp.git_client = services['git_client']
-        mcp.change_detector = services['change_detector']
-        mcp.diff_analyzer = services['diff_analyzer']
-        mcp.status_tracker = services['status_tracker']
-        logger.info("Server context configured")
-
-        # Register tools
-        logger.info("Registering tools...")
-        register_tools(mcp)
-        logger.info("Tools registration completed")
-
-        # Create HTTP app
-        app = mcp.http_app(path="/mcp", transport=transport)
-        
-        # Run with uvicorn
-        import uvicorn
-        logger.info("Starting HTTP server...")
-        uvicorn.run(app, host=host, port=port, log_level="info")
-        
-    except Exception as e:
-        logger.error(f"HTTP server error: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        sys.exit(1)
-
-
-def setup_logging(log_level: str = "INFO"):
-    """Configure logging level."""
-    # Your existing logging setup through logging_service should handle this
-    # Just ensure the level is properly set
-    import logging
-    level = getattr(logging, log_level.upper())
-    logging.getLogger().setLevel(level)
-
-
 def main():
     """Main entry point with command line argument parsing."""
     parser = argparse.ArgumentParser(description="MCP Local Repository Analyzer")
     parser.add_argument(
-        "--transport", 
+        "--transport",
         choices=["stdio", "streamable-http", "sse"], 
         default="stdio",
         help="Transport protocol to use"
@@ -324,11 +226,26 @@ def main():
         default="INFO",
         help="Logging level"
     )
+    parser.add_argument(
+        "--work-dir",
+        help="Default working directory for Git operations"
+    )
     
     args = parser.parse_args()
     
     # Setup logging
     setup_logging(args.log_level)
+
+    # Set default work directory - Docker volume mount support
+    work_dir = args.work_dir or os.getenv('WORK_DIR')
+    if not work_dir:
+        # If /repo exists (Docker volume mount), use it, otherwise use current dir
+        work_dir = '/repo' if os.path.exists('/repo') else '.'
+    
+    # Set the working directory 
+    if work_dir != '.':
+        os.chdir(work_dir)
+        logger.info(f"Changed working directory to: {work_dir}")
     
     try:
         if args.transport == "stdio":
