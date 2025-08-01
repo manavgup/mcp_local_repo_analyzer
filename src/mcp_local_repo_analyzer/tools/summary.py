@@ -920,10 +920,10 @@ def _generate_recommendations(
         recommendations.append("📦 Review and apply/clean up stashed changes")
 
     # File category recommendations
-    if _categories.has_critical_changes:
+    if categories.has_critical_changes:
         recommendations.append("🔍 Extra review needed for critical file changes")
 
-    if len(_categories.source_code) > 0 and len(_categories.tests) == 0:
+    if len(categories.source_code) > 0 and len(categories.tests) == 0:
         recommendations.append("🧪 Consider adding tests for code changes")
 
     return recommendations
