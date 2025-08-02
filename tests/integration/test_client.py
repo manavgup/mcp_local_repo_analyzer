@@ -920,9 +920,9 @@ async def main():
 
             # Determine overall success
             overall_success = True
-            for category, category_results in results.items():
+            for _, category_results in results.items():
                 if isinstance(category_results, dict):
-                    for test_name, test_result in category_results.items():
+                    for _, test_result in category_results.items():
                         if isinstance(test_result, dict) and not test_result.get(
                             "success", True
                         ):

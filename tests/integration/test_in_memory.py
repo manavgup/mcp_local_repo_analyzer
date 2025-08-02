@@ -1,29 +1,16 @@
-import pytest
-
 #!/usr/bin/env python3
 """
 In-memory test client for the Local Git Changes Analyzer.
 This bypasses stdio transport issues by running server in same process.
 """
-
-import sys
-from pathlib import Path
-
+import pytest
 from fastmcp import Client
 from mcp_local_repo_analyzer.main import create_server, register_tools
-
-# Add the project root to Python path so imports work
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-# Also add the mcp_local_repo_analyzer directory
-sys.path.insert(0, str(project_root / "mcp_local_repo_analyzer"))
 
 
 @pytest.mark.asyncio
 async def test_in_memory():
     """Test the server using in-memory transport."""
-
     # Create the server instance directly
     server = create_server()
 
@@ -48,7 +35,7 @@ async def test_in_memory():
             else:
                 name = tool.get("name", "Unknown")
                 description = tool.get("description", "No description")
-            print(f"  - {name}: {description}")
+            print(f" - {name}: {description}")
 
         # Test 2: Analyze working directory
         print("\n🔍 Testing working directory analysis...")
@@ -61,7 +48,7 @@ async def test_in_memory():
                     "max_diff_lines": 10,
                 },  # Keep it simple for testing
             )
-            assert isinstance(result, dict) or isinstance(result, list)
+            assert isinstance(result, (dict, list))
             print("✅ Working directory analysis:")
             print_result_summary(result)
         except Exception as e:
@@ -73,7 +60,7 @@ async def test_in_memory():
             result = await client.call_tool(
                 "get_outstanding_summary", {"repository_path": ".", "detailed": False}
             )
-            assert isinstance(result, dict) or isinstance(result, list)
+            assert isinstance(result, (dict, list))
             print("✅ Outstanding summary:")
             print_result_summary(result)
         except Exception as e:
@@ -87,12 +74,11 @@ def print_result_summary(result):
     """Print a summary of the tool result."""
     if isinstance(result, dict):
         if "error" in result:
-            print(f"  ❌ Error: {result['error']}")
+            print(f" ❌ Error: {result['error']}")
             return
 
         # Print key metrics
         metrics = []
-
         if "total_files_changed" in result:
             metrics.append(f"Files changed: {result['total_files_changed']}")
         if "total_staged_files" in result:
@@ -102,7 +88,7 @@ def print_result_summary(result):
             metrics.append(f"Work status: {work_status}")
 
         if metrics:
-            print(f"  📊 {' | '.join(metrics)}")
+            print(f" 📊 {' | '.join(metrics)}")
 
         if "summary" in result and isinstance(result["summary"], str):
-            print(f"  💬 {result['summary']}")
+            print(f" 💬 {result['summary']}")

@@ -1,15 +1,15 @@
-import pytest
-
 #!/usr/bin/env python3
 """
 Updated unit tests for the git analyzer services - Fixed version.
 """
-
 import asyncio
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
 from mcp_local_repo_analyzer.services.git.change_detector import ChangeDetector
 from mcp_local_repo_analyzer.services.git.diff_analyzer import DiffAnalyzer
 from mcp_local_repo_analyzer.services.git.status_tracker import StatusTracker
@@ -17,9 +17,6 @@ from mcp_shared_lib.config import GitAnalyzerSettings
 from mcp_shared_lib.models.git.changes import FileStatus, WorkingDirectoryChanges
 from mcp_shared_lib.models.git.repository import LocalRepository
 from mcp_shared_lib.services.git.git_client import GitClient
-
-# Add project root to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 class TestGitClient:
@@ -306,10 +303,6 @@ def run_service_tests():
     """Run all service tests."""
     print("🧪 Running service unit tests...")
 
-    # Run tests using pytest
-    import subprocess
-    import sys
-
     result = subprocess.run(
         [
             sys.executable,
@@ -338,9 +331,6 @@ async def integration_test():
 
     try:
         # Test with a known git directory or create a temporary one
-        import subprocess
-        import tempfile
-
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 

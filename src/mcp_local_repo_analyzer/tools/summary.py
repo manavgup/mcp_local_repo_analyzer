@@ -163,9 +163,7 @@ def register_summary_tools(mcp: FastMCP):
             )
 
             # Create summary text
-            summary_text = _create_summary_text(
-                repo_status, risk_assessment, categories
-            )
+            summary_text = _create_summary_text(repo_status, risk_assessment)
 
             await ctx.report_progress(5, 6)
             await ctx.debug("Compiling final results")
@@ -930,9 +928,7 @@ def _generate_recommendations(
 
 
 def _create_summary_text(
-    repo_status: RepositoryStatus,
-    risk_assessment: RiskAssessment,
-    categories: ChangeCategorization,
+    repo_status: RepositoryStatus, risk_assessment: RiskAssessment
 ) -> str:
     """Create a human-readable summary text."""
     parts = []

@@ -30,7 +30,7 @@ async def test_http_server():
             "analyze_working_directory", {"repository_path": "."}
         )
         print(f"📊 Result: {result.get('total_files_changed', 'unknown')} files changed")
-        assert isinstance(result, dict) or isinstance(result, list)
+        assert isinstance(result, (dict, list))
 
 
 if __name__ == "__main__":

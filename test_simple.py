@@ -6,24 +6,22 @@ a working alternative.
 """
 
 import asyncio
-import json
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 
 def test_manual_pipe_approach():
     """Demonstrate why the manual pipe approach has timing issues."""
     print("🔍 Testing manual pipe approach (this may fail due to timing)...")
-    
+
     try:
         # This is the problematic approach - it doesn't wait for proper initialization
         cmd = [
             "bash", "-c",
             '(echo \'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\'; sleep 2; echo \'{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\') | poetry run local-git-analyzer'
         ]
-        
+
         result = subprocess.run(
             cmd,
             cwd=Path(__file__).parent,
@@ -31,7 +29,7 @@ def test_manual_pipe_approach():
             text=True,
             timeout=10
         )
-        
+
         if result.returncode == 0:
             print("✅ Manual pipe approach succeeded")
             return True
@@ -40,7 +38,7 @@ def test_manual_pipe_approach():
             if "TaskGroup" in result.stderr:
                 print("   - TaskGroup error detected (timing issue)")
             return False
-            
+
     except subprocess.TimeoutExpired:
         print("❌ Manual pipe approach timed out")
         return False
@@ -52,40 +50,40 @@ def test_manual_pipe_approach():
 async def test_proper_client_approach():
     """Test using the proper FastMCP client approach."""
     print("\n🔍 Testing proper FastMCP client approach...")
-    
+
     try:
         # Import here to avoid dependency issues
         from fastmcp import Client
         from fastmcp.client.transports import StdioTransport
-        
+
         # Create proper transport
         transport = StdioTransport(
             command="poetry",
             args=["run", "local-git-analyzer"]
         )
         client = Client(transport)
-        
+
         async with client:
             print("✅ Server connection established")
-            
+
             # Test ping
             await client.ping()
             print("✅ Server ping successful")
-            
+
             # Test tools list
             tools = await client.list_tools()
             print(f"✅ Available tools: {len(tools)}")
-            
+
             # Test a tool call
-            result = await client.call_tool("analyze_working_directory", {
+            await client.call_tool("analyze_working_directory", {
                 "repository_path": ".",
                 "include_diffs": False
             })
             print("✅ Tool call successful")
-            
+
         print("✅ Proper client approach succeeded")
         return True
-        
+
     except ImportError:
         print("❌ FastMCP not available - install with: pip install fastmcp")
         return False
@@ -98,18 +96,18 @@ def main():
     """Main test runner."""
     print("MCP Server Testing Comparison")
     print("=" * 50)
-    
+
     # Test manual pipe approach
     manual_success = test_manual_pipe_approach()
-    
+
     # Test proper client approach
     client_success = asyncio.run(test_proper_client_approach())
-    
+
     print("\n" + "=" * 50)
     print("SUMMARY:")
     print(f"Manual pipe approach: {'✅ Success' if manual_success else '❌ Failed'}")
     print(f"Proper client approach: {'✅ Success' if client_success else '❌ Failed'}")
-    
+
     if not manual_success and client_success:
         print("\n💡 EXPLANATION:")
         print("The manual pipe approach fails because:")
@@ -122,7 +120,7 @@ def main():
         print("3. It manages the connection lifecycle properly")
         print("\n🎯 RECOMMENDATION: Use the FastMCP client for testing")
         print("   Command: poetry run python test_client.py")
-    
+
     return client_success
 
 

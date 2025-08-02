@@ -4,9 +4,11 @@ Test module: manual
 Migrated to standardized test structure with shared fixtures.
 """
 import asyncio
+import json
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -18,8 +20,6 @@ print("mcp_shared_lib paths:", [p for p in sys.path if "mcp_shared_lib" in p])
 
 # Test the import within pytest
 try:
-    from mcp_shared_lib.config import settings
-
     print("✅ Import successful in test environment")
 except ImportError as e:
     print(f"❌ Import failed in test environment: {e}")
@@ -27,8 +27,6 @@ except ImportError as e:
 
     traceback.print_exc()
 print("=== END DEBUG ===")
-
-# Import shared fixtures from mcp_shared_lib
 
 
 class GitTestRepo:
@@ -110,8 +108,6 @@ async def test_scenario_clean_repo():
             )
 
             if isinstance(result, list) and result and hasattr(result[0], "text"):
-                import json
-
                 data = json.loads(result[0].text)
             elif isinstance(result, dict):
                 data = result
@@ -154,7 +150,9 @@ async def test_scenario_clean_repo():
             elif not data.get("has_outstanding_work", True):
                 print("  ✅ Repository is completely clean")
             else:
-                assert False, f"Unexpected outstanding work in clean repo. Got: {data}"
+                raise AssertionError(
+                    f"Unexpected outstanding work in clean repo. Got: {data}"
+                )
 
 
 @pytest.mark.asyncio
@@ -183,8 +181,6 @@ async def test_scenario_working_directory_changes():
             )
 
             if isinstance(result, list) and result and hasattr(result[0], "text"):
-                import json
-
                 data = json.loads(result[0].text)
             elif isinstance(result, dict):
                 data = result
@@ -225,8 +221,6 @@ async def test_scenario_staged_changes():
             )
 
             if isinstance(result, list) and result and hasattr(result[0], "text"):
-                import json
-
                 data = json.loads(result[0].text)
             elif isinstance(result, dict):
                 data = result
@@ -271,8 +265,6 @@ async def test_scenario_mixed_changes():
             )
 
             if isinstance(result, list) and result and hasattr(result[0], "text"):
-                import json
-
                 data = json.loads(result[0].text)
             elif isinstance(result, dict):
                 data = result
@@ -307,8 +299,6 @@ async def test_error_handling():
             )
 
             if isinstance(result, list) and result and hasattr(result[0], "text"):
-                import json
-
                 data = json.loads(result[0].text)
             elif isinstance(result, dict):
                 data = result
@@ -335,8 +325,6 @@ def test_server_startup():
         )
 
         # Give it a moment to start
-        import time
-
         time.sleep(2)
 
         # Check if it's still running (not crashed immediately)
@@ -350,17 +338,18 @@ def test_server_startup():
             print("❌ Server failed to start:")
             print(f"STDOUT: {stdout}")
             print(f"STDERR: {stderr}")
-            assert False
+            raise AssertionError("Server failed to start")
 
     except Exception as e:
         print(f"❌ Server startup test failed: {e}")
-        assert False
+        raise AssertionError(f"Server startup test failed: {e}") from None
 
 
 @pytest.mark.skip(reason="Requires running HTTP server at http://localhost:8000/mcp")
 @pytest.mark.asyncio
 async def test_http_server():
-    ...
+    """Test HTTP server functionality."""
+    pass
 
 
 async def run_all_scenarios():
@@ -399,10 +388,11 @@ async def run_all_scenarios():
 
 
 if __name__ == "__main__":
-    import sys
-
     # Test server startup first
-    if not test_server_startup():
+    try:
+        test_server_startup()
+        print("✅ Server startup test passed")
+    except Exception:
         print("❌ Server startup failed - aborting tests")
         sys.exit(1)
 

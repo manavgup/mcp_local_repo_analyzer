@@ -3,8 +3,6 @@
 Debug script to check what's available in mcp.types
 """
 
-import os
-import sys
 import logging
 
 # Set a basic logger for the debug script itself
@@ -17,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 try:
     import mcp.types as types
     print("✅ Successfully imported mcp.types")
-    
+
     print("\n📋 Available attributes in mcp.types:")
     attributes = [attr for attr in dir(types) if not attr.startswith('_')]
     for attr in sorted(attributes):
@@ -32,17 +30,17 @@ try:
                 print(f"  {attr}: {type(obj).__name__}")
         except Exception as e:
             print(f"  {attr}: Error - {e}")
-    
+
     print("\n🔍 Looking for content-related types:")
     content_attrs = [attr for attr in attributes if 'content' in attr.lower() or 'text' in attr.lower() or 'resource' in attr.lower()]
     for attr in content_attrs:
         print(f"  ✓ {attr}")
-    
+
     print("\n🔍 Looking for tool-related types:")
     tool_attrs = [attr for attr in attributes if 'tool' in attr.lower()]
     for attr in tool_attrs:
         print(f"  ✓ {attr}")
-        
+
     # Try to find the correct content type
     print("\n🎯 Testing common content types:")
     test_types = ['TextContent', 'BlobResourceContents', 'ImageContent', 'AudioContent', 'ContentBlock', 'CallToolResult', 'ReadResourceResult'] # Added more relevant types
@@ -72,13 +70,13 @@ except Exception as e:
 try:
     from mcp.server.lowlevel import Server
     print("\n✅ Successfully imported mcp.server.lowlevel.Server")
-    
+
     # Check Server class methods
     print("\n📋 Server class methods:")
     methods = [method for method in dir(Server) if not method.startswith('_')]
     for method in sorted(methods):
         print(f"  {method}")
-        
+
 except ImportError as e:
     print(f"\n❌ Failed to import Server: {e}")
 except Exception as e:
@@ -89,7 +87,7 @@ except Exception as e:
 try:
     from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
     print("\n✅ Successfully imported StreamableHTTPSessionManager")
-    
+
     print("\n📋 StreamableHTTPSessionManager attributes:")
     attributes = [attr for attr in dir(StreamableHTTPSessionManager) if not attr.startswith('_')]
     for attr in sorted(attributes):

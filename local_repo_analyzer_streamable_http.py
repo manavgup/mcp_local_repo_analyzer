@@ -4,23 +4,26 @@ Clean FastMCP 2.0 Server using proper async patterns
 Following FastMCP documentation for streamable-http transport
 """
 
-import os
-import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 
-from fastmcp import FastMCP, Context
+from fastmcp import Context, FastMCP
 from pydantic import Field
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
+from mcp_local_repo_analyzer.services.git import (
+    ChangeDetector,
+    DiffAnalyzer,
+    StatusTracker,
+)
 from mcp_shared_lib.config import settings
-from mcp_shared_lib.services import GitClient
 from mcp_shared_lib.models import LocalRepository
+from mcp_shared_lib.services import GitClient
 from mcp_shared_lib.utils import find_git_root, is_git_repository
-from mcp_local_repo_analyzer.services.git import ChangeDetector, DiffAnalyzer, StatusTracker
 
 # Configure logging
 log_level_str = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -39,7 +42,7 @@ app = None # This will hold our ASGI application
 
 def create_fastmcp_server() -> FastMCP:
     """Create a FastMCP server with tools and custom routes."""
-    
+
     # Initialize services
     logger.info("Initializing git analysis services...")
     git_client = GitClient(settings)
@@ -47,7 +50,7 @@ def create_fastmcp_server() -> FastMCP:
     diff_analyzer = DiffAnalyzer(settings)
     status_tracker = StatusTracker(git_client, change_detector)
     logger.info("✅ Services initialized")
-    
+
     # Create FastMCP server
     # Note: FastMCP constructor accepts a 'version' parameter if you want to explicitly set it.
     # Otherwise, it might be inferred or default.
@@ -65,23 +68,23 @@ def create_fastmcp_server() -> FastMCP:
         in the current directory or use the default configured path.
         """
     )
-    
+
     # Store services on the server for access in tools
     mcp.git_client = git_client
     mcp.change_detector = change_detector
     mcp.diff_analyzer = diff_analyzer
     mcp.status_tracker = status_tracker
-    
+
     # Add custom health endpoints using FastMCP's @custom_route
     # These remain as they are standard practice and don't conflict with /mcp POST.
     from starlette.requests import Request
     from starlette.responses import JSONResponse
-    
+
     @mcp.custom_route("/health", methods=["GET"])
     async def health_check(request: Request) -> JSONResponse:
         return JSONResponse({"status": "ok", "service": "Local Git Changes Analyzer"})
-    
-    @mcp.custom_route("/healthz", methods=["GET"]) 
+
+    @mcp.custom_route("/healthz", methods=["GET"])
     async def health_check_z(request: Request) -> JSONResponse:
         return JSONResponse({"status": "ok", "service": "Local Git Changes Analyzer"})
 
@@ -95,7 +98,7 @@ def create_fastmcp_server() -> FastMCP:
     ) -> dict:
         """Analyze uncommitted changes in working directory."""
         await ctx.info(f"Starting working directory analysis for: {repository_path}")
-        
+
         try:
             repo_path = Path(repository_path).resolve()
             if not is_git_repository(repo_path):
@@ -145,7 +148,7 @@ def create_fastmcp_server() -> FastMCP:
     ) -> dict:
         """Analyze changes staged for commit."""
         await ctx.info(f"Starting staged changes analysis for: {repository_path}")
-        
+
         try:
             repo_path = Path(repository_path).resolve()
             if not is_git_repository(repo_path):
@@ -203,7 +206,7 @@ def create_fastmcp_server() -> FastMCP:
     ) -> dict:
         """Get comprehensive summary of all outstanding changes."""
         await ctx.info(f"Starting comprehensive repository analysis for: {repository_path}")
-        
+
         try:
             repo_path = Path(repository_path).resolve()
             if not is_git_repository(repo_path):
