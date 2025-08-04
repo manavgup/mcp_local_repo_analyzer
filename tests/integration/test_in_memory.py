@@ -5,6 +5,7 @@ This bypasses stdio transport issues by running server in same process.
 """
 import pytest
 from fastmcp import Client
+
 from mcp_local_repo_analyzer.main import create_server, register_tools
 
 

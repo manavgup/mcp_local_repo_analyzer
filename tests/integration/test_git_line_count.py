@@ -170,10 +170,11 @@ async def test_debug_git_line_counts():
 
             print("\n=== Testing ChangeDetector ===")
 
+            from mcp_shared_lib.models import LocalRepository
+
             from mcp_local_repo_analyzer.services.git.change_detector import (
                 ChangeDetector,
             )
-            from mcp_shared_lib.models import LocalRepository
 
             change_detector = ChangeDetector(git_client)
             repo_model = LocalRepository(

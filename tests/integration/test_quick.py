@@ -2,6 +2,7 @@ import json
 
 import pytest
 from fastmcp import Client
+
 from mcp_local_repo_analyzer.main import create_server, register_tools
 
 

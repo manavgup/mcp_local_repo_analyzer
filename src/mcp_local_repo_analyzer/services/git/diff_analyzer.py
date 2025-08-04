@@ -34,7 +34,7 @@ class DiffAnalyzer:
         """Log message if context is available."""
         # Try to get context for additional info, but don't await
         try:
-            _ctx = get_context()
+            ctx = get_context()
             # Add context info to message but use sync logger
             message = f"[FastMCP] {message}"
         except RuntimeError:

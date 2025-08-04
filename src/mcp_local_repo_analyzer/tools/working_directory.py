@@ -284,8 +284,8 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
     async def get_untracked_files(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
-        _include_ignored: bool = Field(
-            False, description="Include ignored files in the list (unused)"
+        include_ignored: bool = Field(
+            False, description="Include ignored files in the list"
         ),
     ) -> dict[str, Any]:
         """Get list of untracked files.
