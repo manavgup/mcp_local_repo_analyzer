@@ -54,7 +54,9 @@ pre-commit = "^3.6.0"
 bandit = "^1.7.5"
 safety = "^2.3.5"
 commitizen = "^3.13.0"
+interrogate = "^1.5.0"
 mcp-shared-lib = {path = "../mcp_shared_lib"}
+types-pyyaml = "^6.0.12.20250516"
 
 [tool.poetry.group.docs.dependencies]
 mkdocs = "^1.5.3"
@@ -74,7 +76,7 @@ source = ["src"]
 branch = true
 omit = [
     "*/tests/*",
-    "*/venv/*", 
+    "*/venv/*",
     "*/__pycache__/*",
     "*/conftest.py",
     "*/test_*.py",
@@ -172,7 +174,7 @@ ignore = [
 "__init__.py" = ["F401"]
 "tests/**/*" = ["ARG", "S101"]
 
-# Black Configuration  
+# Black Configuration
 [tool.black]
 line-length = 88
 target-version = ['py39']
