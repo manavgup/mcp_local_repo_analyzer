@@ -71,7 +71,7 @@ jobs:
         
       - name: Run tests
         run: |
-          poetry run make test-fast
+          poetry run make test
           
   security:
     name: Security
