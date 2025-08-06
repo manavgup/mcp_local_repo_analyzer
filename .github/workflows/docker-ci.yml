@@ -1,13 +1,17 @@
 # For details of what checks are run for PRs please refer below
 # docs: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
+#
+# DISABLED: Docker CI requires external dependencies not available in individual repository context
+# Enable this workflow only when running in a monorepo setup or after creating self-contained Docker setup
 
-name: Docker CI
+name: Docker CI (Disabled)
 
-on:
-  push:
-    branches: ["main"]
-  pull_request:
-  workflow_dispatch:
+# Workflow disabled - uncomment 'on:' section to re-enable
+# on:
+#   push:
+#     branches: ["main"]
+#   pull_request:
+#   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
