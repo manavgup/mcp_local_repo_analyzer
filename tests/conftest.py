@@ -7,11 +7,60 @@ fixtures from mcp_shared_lib.
 
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any, Optional
 from unittest.mock import Mock
 
 import pytest
 
 # Import shared fixtures from mcp_shared_lib
+# Note: Direct import instead of pytest_plugins due to package structure
+try:
+    import sys
+    from pathlib import Path
+
+    # Add the mcp_shared_lib tests directory to the path
+    shared_lib_tests_path = (
+        Path(__file__).parent.parent.parent / "mcp_shared_lib" / "tests"
+    )
+    if shared_lib_tests_path.exists():
+        sys.path.insert(0, str(shared_lib_tests_path))
+        from conftest import *
+    else:
+        # Fallback: define essential fixtures locally
+        @pytest.fixture
+        def sample_config():
+            return {
+                "git_client": {"timeout": 30},
+                "analyzer": {"scan_depth": 10},
+            }
+
+        @pytest.fixture
+        def temp_dir():
+            import shutil
+            import tempfile
+
+            temp_dir = Path(tempfile.mkdtemp(prefix="test_"))
+            yield temp_dir
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+except ImportError:
+    # Fallback: define essential fixtures locally
+    @pytest.fixture
+    def sample_config():
+        return {
+            "git_client": {"timeout": 30},
+            "analyzer": {"scan_depth": 10},
+        }
+
+    @pytest.fixture
+    def temp_dir():
+        import shutil
+        import tempfile
+
+        temp_dir = Path(tempfile.mkdtemp(prefix="test_"))
+        yield temp_dir
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
 
 try:
     from git import Repo
@@ -582,8 +631,12 @@ def create_mock_git_status(modified=None, untracked=None, staged=None, deleted=N
 
 
 def create_mock_commit(
-    hash_id=None, message=None, author=None, timestamp=None, files=None
-):
+    hash_id: Optional[str] = None,
+    message: Optional[str] = None,
+    author: Optional[str] = None,
+    timestamp: Optional[datetime] = None,
+    files: Optional[list[str]] = None,
+) -> dict[str, Any]:
     """Create a mock commit object."""
     return {
         "hash": hash_id or "abc123def456",

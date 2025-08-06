@@ -1,6 +1,7 @@
 """Service for analyzing git diffs and generating insights."""
 
 import re
+from typing import Any
 
 from fastmcp.server.dependencies import get_context
 from mcp_shared_lib.config.git_analyzer import GitAnalyzerSettings
@@ -34,7 +35,7 @@ class DiffAnalyzer:
         """Log message if context is available."""
         # Try to get context for additional info, but don't await
         try:
-            ctx = get_context()
+            get_context()
             # Add context info to message but use sync logger
             message = f"[FastMCP] {message}"
         except RuntimeError:
@@ -139,7 +140,7 @@ class DiffAnalyzer:
         """Parse diff hunks from lines."""
         hunks = []
         current_hunk = None
-        hunk_content = []
+        hunk_content: list[str] = []
 
         for line in lines:
             if line.startswith("@@"):
@@ -463,7 +464,7 @@ class DiffAnalyzer:
 
         return any(conflict_indicators)
 
-    def generate_insights(self, changes: list[FileStatus]) -> dict[str, any]:
+    def generate_insights(self, changes: list[FileStatus]) -> dict[str, Any]:
         """Generate comprehensive insights about the changes."""
         self._log_if_context("debug", "Generating comprehensive change insights")
 
@@ -476,7 +477,7 @@ class DiffAnalyzer:
         total_changes = sum(f.total_changes for f in changes)
 
         # Analyze change patterns
-        file_types = {}
+        file_types: dict[str, int] = {}
 
         for file_status in changes:
             # Count file types

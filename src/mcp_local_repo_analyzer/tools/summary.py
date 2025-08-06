@@ -16,7 +16,7 @@ from mcp_shared_lib.utils import find_git_root, is_git_repository
 from pydantic import Field
 
 
-def register_summary_tools(mcp: FastMCP):
+def register_summary_tools(mcp: FastMCP) -> None:
     """Register summary and analysis tools."""
 
     @mcp.tool()
@@ -123,7 +123,8 @@ def register_summary_tools(mcp: FastMCP):
             await ctx.debug("Getting branch information")
 
             # Get branch info
-            branch_info = await mcp.git_client.get_branch_info(repo_path, ctx)
+            services = ctx.app.state.services
+            branch_info = await services["git_client"].get_branch_info(repo_path, ctx)
 
             await ctx.report_progress(1, 6)
             await ctx.debug("Creating repository model")
@@ -139,7 +140,9 @@ def register_summary_tools(mcp: FastMCP):
             await ctx.info("Analyzing all repository components...")
 
             # Get complete repository status using existing RepositoryStatus model
-            repo_status = await mcp.status_tracker.get_repository_status(repo, ctx)
+            repo_status = await services["status_tracker"].get_repository_status(
+                repo, ctx
+            )
 
             await ctx.report_progress(3, 6)
             await ctx.debug("Categorizing and analyzing file changes")
@@ -151,8 +154,8 @@ def register_summary_tools(mcp: FastMCP):
             )
 
             await ctx.debug(f"Analyzing {len(all_changed_files)} total changed files")
-            categories = mcp.diff_analyzer.categorize_changes(all_changed_files)
-            risk_assessment = mcp.diff_analyzer.assess_risk(all_changed_files)
+            categories = services["diff_analyzer"].categorize_changes(all_changed_files)
+            risk_assessment = services["diff_analyzer"].assess_risk(all_changed_files)
 
             await ctx.report_progress(4, 6)
             await ctx.debug("Generating recommendations and summary")
@@ -353,7 +356,10 @@ def register_summary_tools(mcp: FastMCP):
             )
 
             await ctx.debug("Gathering health metrics")
-            health_metrics = await mcp.status_tracker.get_health_metrics(repo, ctx)
+            services = ctx.app.state.services
+            health_metrics = await services["status_tracker"].get_health_metrics(
+                repo, ctx
+            )
 
             await ctx.debug("Calculating health score")
             # Determine overall health score (0-100)
@@ -512,7 +518,8 @@ def register_summary_tools(mcp: FastMCP):
 
         try:
             await ctx.debug("Getting branch information")
-            branch_info = await mcp.git_client.get_branch_info(repo_path, ctx)
+            services = ctx.app.state.services
+            branch_info = await services["git_client"].get_branch_info(repo_path, ctx)
 
             await ctx.debug("Creating repository model")
             repo = LocalRepository(
@@ -523,7 +530,9 @@ def register_summary_tools(mcp: FastMCP):
             )
 
             await ctx.debug("Getting repository status for push readiness check")
-            repo_status = await mcp.status_tracker.get_repository_status(repo, ctx)
+            repo_status = await services["status_tracker"].get_repository_status(
+                repo, ctx
+            )
 
             await ctx.debug("Checking push readiness criteria")
             # Check readiness criteria
@@ -677,7 +686,8 @@ def register_summary_tools(mcp: FastMCP):
             )
 
             await ctx.debug("Detecting stashed changes")
-            stashed_changes = await mcp.change_detector.detect_stashed_changes(
+            services = ctx.app.state.services
+            stashed_changes = await services["change_detector"].detect_stashed_changes(
                 repo, ctx
             )
 
@@ -792,7 +802,8 @@ def register_summary_tools(mcp: FastMCP):
 
         try:
             await ctx.debug("Getting branch information")
-            branch_info = await mcp.git_client.get_branch_info(repo_path, ctx)
+            services = ctx.app.state.services
+            branch_info = await services["git_client"].get_branch_info(repo_path, ctx)
             current_branch = branch_info.get("current_branch", "main")
 
             if current_branch == target_branch:
@@ -815,17 +826,19 @@ def register_summary_tools(mcp: FastMCP):
 
             await ctx.debug("Getting working directory and staged changes")
             # Get working directory and staged changes
-            working_changes = (
-                await mcp.change_detector.detect_working_directory_changes(repo, ctx)
+            working_changes = await services[
+                "change_detector"
+            ].detect_working_directory_changes(repo, ctx)
+            staged_changes = await services["change_detector"].detect_staged_changes(
+                repo, ctx
             )
-            staged_changes = await mcp.change_detector.detect_staged_changes(repo, ctx)
 
             await ctx.debug("Analyzing potential conflicts")
             # Simple conflict detection based on file changes
             all_files = working_changes.all_files + staged_changes.staged_files
 
             # Assess risk of conflicts using existing risk assessment
-            risk_assessment = mcp.diff_analyzer.assess_risk(all_files)
+            risk_assessment = services["diff_analyzer"].assess_risk(all_files)
             potential_conflicts = risk_assessment.potential_conflicts
 
             await ctx.debug("Applying conflict detection heuristics")
