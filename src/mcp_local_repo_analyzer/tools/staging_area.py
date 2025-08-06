@@ -10,7 +10,7 @@ from mcp_shared_lib.utils import find_git_root, is_git_repository
 from pydantic import Field
 
 
-def register_staging_area_tools(mcp: FastMCP):
+def register_staging_area_tools(mcp: FastMCP) -> None:
     """Register staging area analysis tools."""
 
     @mcp.tool()
@@ -100,7 +100,10 @@ def register_staging_area_tools(mcp: FastMCP):
             await ctx.debug("Detecting staged changes")
 
             # Use existing StagedChanges model
-            staged_changes = await mcp.change_detector.detect_staged_changes(repo, ctx)
+            services = ctx.app.state.services
+            staged_changes = await services["change_detector"].detect_staged_changes(
+                repo, ctx
+            )
 
             await ctx.report_progress(2, 4)
             await ctx.info(f"Found {staged_changes.total_staged} staged files")
@@ -153,7 +156,7 @@ def register_staging_area_tools(mcp: FastMCP):
                             continue
 
                         await ctx.debug(f"Getting staged diff for: {file_status.path}")
-                        diff_content = await mcp.git_client.get_diff(
+                        diff_content = await services["git_client"].get_diff(
                             repo_path, staged=True, file_path=file_status.path, ctx=ctx
                         )
 
@@ -278,7 +281,10 @@ def register_staging_area_tools(mcp: FastMCP):
             )
 
             await ctx.debug("Detecting staged changes")
-            staged_changes = await mcp.change_detector.detect_staged_changes(repo, ctx)
+            services = ctx.app.state.services
+            staged_changes = await services["change_detector"].detect_staged_changes(
+                repo, ctx
+            )
 
             if not staged_changes.ready_to_commit:
                 await ctx.info("No changes staged for commit")
@@ -290,7 +296,7 @@ def register_staging_area_tools(mcp: FastMCP):
 
             await ctx.debug("Categorizing staged changes")
             # Categorize changes using existing analyzer
-            categories = mcp.diff_analyzer.categorize_changes(
+            categories = services["diff_analyzer"].categorize_changes(
                 staged_changes.staged_files
             )
 
@@ -430,7 +436,10 @@ def register_staging_area_tools(mcp: FastMCP):
             )
 
             await ctx.debug("Detecting staged changes")
-            staged_changes = await mcp.change_detector.detect_staged_changes(repo, ctx)
+            services = ctx.app.state.services
+            staged_changes = await services["change_detector"].detect_staged_changes(
+                repo, ctx
+            )
 
             if not staged_changes.ready_to_commit:
                 await ctx.info(
@@ -444,10 +453,12 @@ def register_staging_area_tools(mcp: FastMCP):
 
             await ctx.debug("Performing risk assessment")
             # Perform validation using existing risk assessment
-            risk_assessment = mcp.diff_analyzer.assess_risk(staged_changes.staged_files)
+            risk_assessment = services["diff_analyzer"].assess_risk(
+                staged_changes.staged_files
+            )
 
             await ctx.debug("Categorizing changes for validation")
-            categories = mcp.diff_analyzer.categorize_changes(
+            categories = services["diff_analyzer"].categorize_changes(
                 staged_changes.staged_files
             )
 

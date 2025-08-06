@@ -69,9 +69,10 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.debug("Detecting working directory changes")
 
             # Detect working directory changes - returns WorkingDirectoryChanges model
-            changes = await mcp.change_detector.detect_working_directory_changes(
-                repo, ctx
-            )
+            services = ctx.app.state.services
+            changes = await services[
+                "change_detector"
+            ].detect_working_directory_changes(repo, ctx)
 
             await ctx.report_progress(2, 4)
             await ctx.info(f"Found {changes.total_files} changed files")
@@ -80,10 +81,12 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             working_dir_status = changes
 
             # Categorize changes
-            categorization = mcp.diff_analyzer.categorize_changes(changes.all_files)
+            categorization = services["diff_analyzer"].categorize_changes(
+                changes.all_files
+            )
 
             # Assess risk
-            risk_assessment = mcp.diff_analyzer.assess_risk(changes.all_files)
+            risk_assessment = services["diff_analyzer"].assess_risk(changes.all_files)
 
             # Create RepositoryStatus model
             repository_status = RepositoryStatus(
@@ -117,7 +120,7 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
                     f"Generating diffs for {min(10, len(changes.all_files))} files"
                 )
                 diffs = await _get_file_diffs(
-                    mcp, repo_path, changes.all_files[:10], max_diff_lines, ctx
+                    services, repo_path, changes.all_files[:10], max_diff_lines, ctx
                 )
                 result["diffs"] = diffs
 
@@ -215,7 +218,8 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.debug(f"Executing git diff command for {file_path}")
 
             # Get diff from git
-            diff_content = await mcp.git_client.get_diff(
+            services = ctx.app.state.services
+            diff_content = await services["git_client"].get_diff(
                 repo_path, staged=staged, file_path=file_path, ctx=ctx
             )
 
@@ -230,7 +234,7 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.debug("Parsing diff content")
 
             # Parse diff using existing FileDiff model
-            file_diffs = mcp.diff_analyzer.parse_diff(diff_content)
+            file_diffs = services["diff_analyzer"].parse_diff(diff_content)
 
             if not file_diffs:
                 await ctx.warning(
@@ -347,9 +351,10 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.debug(
                 "Detecting working directory changes to find untracked files"
             )
-            changes: WorkingDirectoryChanges = (
-                await mcp.change_detector.detect_working_directory_changes(repo, ctx)
-            )
+            services = ctx.app.state.services
+            changes: WorkingDirectoryChanges = await services[
+                "change_detector"
+            ].detect_working_directory_changes(repo, ctx)
 
             untracked_files = [_format_file_status(f) for f in changes.untracked_files]
 
@@ -382,7 +387,11 @@ def _format_file_status(file_status: FileStatus) -> dict[str, Any]:
 
 
 async def _get_file_diffs(
-    mcp: FastMCP, repo_path: Path, files: list[FileStatus], max_lines: int, ctx: Context
+    services: dict[str, Any],
+    repo_path: Path,
+    files: list[FileStatus],
+    max_lines: int,
+    ctx: Context,
 ) -> list[dict[str, Any]]:
     """Get diffs for a list of files."""
     diffs = []
@@ -404,7 +413,7 @@ async def _get_file_diffs(
                 continue
 
             await ctx.debug(f"Getting diff for file: {file_status.path}")
-            diff_content = await mcp.git_client.get_diff(
+            diff_content = await services["git_client"].get_diff(
                 repo_path,
                 staged=file_status.staged,
                 file_path=file_status.path,

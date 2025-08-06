@@ -3,6 +3,7 @@
 
 import argparse
 import asyncio
+import logging
 import os
 import sys
 import traceback
@@ -272,9 +273,12 @@ def run_http_server(
         logger.info("Creating server and services...")
         mcp, services = create_server()
 
-        # Store services in the app state for tools to access
+        # Store services on the mcp instance for tools to access
         logger.info("Setting up server context...")
-        mcp.app.state.services = services
+        mcp.git_client = services["git_client"]
+        mcp.change_detector = services["change_detector"]
+        mcp.diff_analyzer = services["diff_analyzer"]
+        mcp.status_tracker = services["status_tracker"]
         logger.info("Server context configured")
 
         # Register tools
@@ -325,7 +329,10 @@ def main():
     args = parser.parse_args()
 
     # Setup logging
-    logging_service.set_level(args.log_level)
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper()),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
 
     # Set default work directory - Docker volume mount support
     work_dir = args.work_dir or os.getenv("WORK_DIR")

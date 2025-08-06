@@ -5,6 +5,7 @@ Migrated to standardized test structure with shared fixtures.
 """
 import asyncio
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -85,6 +86,7 @@ class GitTestRepo:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(os.getenv("CI") == "true", reason="Integration test requires MCP server setup not available in CI")
 async def test_scenario_clean_repo():
     """Test scenario: Clean repository with no changes."""
     print("\n🧹 Testing Scenario: Clean Repository")
@@ -156,6 +158,7 @@ async def test_scenario_clean_repo():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(os.getenv("CI") == "true", reason="Integration test requires MCP server setup not available in CI")
 async def test_scenario_working_directory_changes():
     """Test scenario: Repository with working directory changes."""
     print("\n📝 Testing Scenario: Working Directory Changes")
@@ -196,6 +199,7 @@ async def test_scenario_working_directory_changes():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(os.getenv("CI") == "true", reason="Integration test requires MCP server setup not available in CI")
 async def test_scenario_staged_changes():
     """Test scenario: Repository with staged changes."""
     print("\n📋 Testing Scenario: Staged Changes")
@@ -232,6 +236,7 @@ async def test_scenario_staged_changes():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(os.getenv("CI") == "true", reason="Integration test requires MCP server setup not available in CI")
 async def test_scenario_mixed_changes():
     """Test scenario: Repository with mixed types of changes."""
     print("\n🎭 Testing Scenario: Mixed Changes")
@@ -286,6 +291,7 @@ async def test_scenario_mixed_changes():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(os.getenv("CI") == "true", reason="Integration test requires MCP server setup not available in CI")
 async def test_error_handling():
     """Test error handling with invalid repository."""
     print("\n⚠️  Testing Scenario: Error Handling")

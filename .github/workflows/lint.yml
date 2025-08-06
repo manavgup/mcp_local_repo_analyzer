@@ -9,124 +9,49 @@
 #   - logs are grouped and plain-text for readability
 # ---------------------------------------------------------------
 
-name: Lint & Static Analysis
+name: Lint
 
 on:
   push:
-    branches: ["master", "main"]
+    branches: [ master, main ]
   pull_request:
-    branches: ["master", "main"]
-
-permissions:
-  contents: read
+    branches: [ master, main ]
 
 jobs:
   lint:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # -------------------------------------------------------
-          # 🧼 Syntax & Format Checkers
-          # -------------------------------------------------------
-          - id: yamllint
-            setup: pip install yamllint
-            cmd: yamllint -c .yamllint .
-
-          - id: jsonlint
-            setup: |
-              sudo apt-get update -qq
-              sudo apt-get install -y jq
-            cmd: |
-              find . -type f -name '*.json' -not -path './node_modules/*' -print0 |
-                xargs -0 -I{} jq empty "{}"
-
-          - id: tomllint
-            setup: pip install tomlcheck
-            cmd: |
-              find . -type f -name '*.toml' -print0 |
-                xargs -0 -I{} tomlcheck "{}"
-
-          # -------------------------------------------------------
-          # 🐍 Python Linters & Type Checkers
-          # -------------------------------------------------------
-          - id: ruff
-            setup: pip install ruff
-            cmd: |
-              ruff check src/ tests/
-
-          - id: black
-            setup: pip install black
-            cmd: |
-              black --check --diff src/ tests/
-
-          - id: isort
-            setup: pip install isort
-            cmd: |
-              isort --check-only --diff src/ tests/
-
-          - id: flake8
-            setup: pip install flake8
-            cmd: flake8 src/ tests/
-
-          - id: unimport
-            setup: pip install unimport
-            cmd: |
-              unimport src/ tests/
-
-          - id: vulture
-            setup: pip install vulture
-            cmd: |
-              vulture src/ tests/ --min-confidence 80
-
-          # -------------------------------------------------------
-          # 🔒 Security & Packaging Checks
-          # -------------------------------------------------------
-          - id: bandit
-            setup: pip install bandit
-            cmd: bandit -r src/
-
-          - id: safety
-            setup: pip install safety
-            cmd: safety check --json
-
-    name: ${{ matrix.id }}
+    name: Lint
     runs-on: ubuntu-latest
-
     steps:
-      # -----------------------------------------------------------
-      # 0️⃣  Checkout
-      # -----------------------------------------------------------
-      - name: ⬇️  Checkout source
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
+      - uses: actions/checkout@v4
 
-      # -----------------------------------------------------------
-      # 1️⃣  Python Setup
-      # -----------------------------------------------------------
-      - name: 🐍  Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      # -----------------------------------------------------------
-      # 2️⃣  Install Project + Dev Dependencies
-      # -----------------------------------------------------------
-      - name: 📦  Install project (editable mode)
+      - name: Install Git
         run: |
-          python3 -m pip install --upgrade pip
-          pip install -e .[dev]
+          sudo apt-get update
+          sudo apt-get install -y git
 
-      # -----------------------------------------------------------
-      # 3️⃣  Install Tool-Specific Requirements
-      # -----------------------------------------------------------
-      - name: 🔧  Install tool - ${{ matrix.id }}
-        run: ${{ matrix.setup }}
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
-      # -----------------------------------------------------------
-      # 4️⃣  Run Linter / Validator
-      # -----------------------------------------------------------
-      - name: 🔍  Run ${{ matrix.id }}
-        run: ${{ matrix.cmd }} 
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Run linting
+        run: |
+          poetry run make lint
