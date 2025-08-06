@@ -34,7 +34,7 @@ jobs:
           
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --with dev,test
         
       - name: Run linting
         run: |
@@ -67,11 +67,13 @@ jobs:
           
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --with dev,test
         
       - name: Run tests
+        env:
+          PYTHONPATH: src
         run: |
-          poetry run make test
+          poetry run pytest tests/unit/ -v --tb=short
           
   security:
     name: Security
@@ -100,7 +102,7 @@ jobs:
           
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --with dev,test
         
       - name: Run security checks
         run: |
