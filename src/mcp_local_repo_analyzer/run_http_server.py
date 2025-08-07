@@ -18,7 +18,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 
-def main():
+def main() -> None:
     """Run server in HTTP mode."""
     # Create and configure server
     server = create_server()

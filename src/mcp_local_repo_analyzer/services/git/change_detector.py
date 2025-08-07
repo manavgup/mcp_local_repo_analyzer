@@ -22,6 +22,7 @@ class ChangeDetector:
     """Service for detecting different types of git changes."""
 
     def __init__(self, git_client: GitClient):
+        """Initialize change detector with git client."""
         self.git_client = git_client
         self.logger = logging_service.get_logger(__name__)
 

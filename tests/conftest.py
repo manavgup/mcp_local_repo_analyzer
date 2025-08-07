@@ -1,10 +1,12 @@
-"""
-Test configuration and fixtures for mcp_local_repo_analyzer.
+"""Test configuration and fixtures for mcp_local_repo_analyzer.
 
 This module provides analyzer-specific fixtures while importing shared
 fixtures from mcp_shared_lib.
 """
 
+import json
+import shutil
+import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
@@ -12,56 +14,7 @@ from unittest.mock import Mock
 
 import pytest
 
-# Import shared fixtures from mcp_shared_lib
-# Note: Direct import instead of pytest_plugins due to package structure
-try:
-    import sys
-    from pathlib import Path
-
-    # Add the mcp_shared_lib tests directory to the path
-    shared_lib_tests_path = (
-        Path(__file__).parent.parent.parent / "mcp_shared_lib" / "tests"
-    )
-    if shared_lib_tests_path.exists():
-        sys.path.insert(0, str(shared_lib_tests_path))
-        from conftest import *
-    else:
-        # Fallback: define essential fixtures locally
-        @pytest.fixture
-        def sample_config():
-            return {
-                "git_client": {"timeout": 30},
-                "analyzer": {"scan_depth": 10},
-            }
-
-        @pytest.fixture
-        def temp_dir():
-            import shutil
-            import tempfile
-
-            temp_dir = Path(tempfile.mkdtemp(prefix="test_"))
-            yield temp_dir
-            shutil.rmtree(temp_dir, ignore_errors=True)
-
-except ImportError:
-    # Fallback: define essential fixtures locally
-    @pytest.fixture
-    def sample_config():
-        return {
-            "git_client": {"timeout": 30},
-            "analyzer": {"scan_depth": 10},
-        }
-
-    @pytest.fixture
-    def temp_dir():
-        import shutil
-        import tempfile
-
-        temp_dir = Path(tempfile.mkdtemp(prefix="test_"))
-        yield temp_dir
-        shutil.rmtree(temp_dir, ignore_errors=True)
-
-
+# Check for optional dependencies
 try:
     from git import Repo
 
@@ -78,8 +31,25 @@ except ImportError:
 
 
 @pytest.fixture
+def sample_config():
+    """Provide basic configuration for testing."""
+    return {
+        "git_client": {"timeout": 30},
+        "analyzer": {"scan_depth": 10},
+    }
+
+
+@pytest.fixture
+def temp_dir():
+    """Temporary directory fixture."""
+    temp_dir = Path(tempfile.mkdtemp(prefix="test_"))
+    yield temp_dir
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@pytest.fixture
 def analyzer_config(sample_config):
-    """Extended configuration specific to the analyzer."""
+    """Provide extended configuration specific to the analyzer."""
     config = sample_config.copy()
     config.update(
         {
@@ -318,7 +288,7 @@ if HAS_FASTMCP:
 
     @pytest.fixture
     async def fastmcp_analyzer_server():
-        """FastMCP server instance configured for analyzer testing."""
+        """Provide FastMCP server instance configured for analyzer testing."""
         server = FastMCP("LocalRepoAnalyzer")
 
         @server.tool
@@ -474,8 +444,6 @@ def analyzer_test_repo(temp_git_repo, create_test_files, sample_project_structur
 
     # Create a config change (high risk)
     config_file = temp_git_repo / "config" / "settings.json"
-    import json
-
     updated_config = {
         "database": {"host": "production.db.com", "port": 5432},
         "api": {"version": "v2", "timeout": 60},
@@ -509,7 +477,7 @@ def sample_analysis_request():
 
 @pytest.fixture
 def expected_analysis_response():
-    """Expected analysis response structure for testing."""
+    """Provide expected analysis response structure for testing."""
     return {
         "status": "success",
         "timestamp": datetime.now().isoformat(),
@@ -649,13 +617,13 @@ def create_mock_commit(
 
 @pytest.fixture
 def git_status_factory():
-    """Factory for creating git status mocks."""
+    """Create factory for creating git status mocks."""
     return create_mock_git_status
 
 
 @pytest.fixture
 def commit_factory():
-    """Factory for creating commit mocks."""
+    """Create factory for creating commit mocks."""
     return create_mock_commit
 
 

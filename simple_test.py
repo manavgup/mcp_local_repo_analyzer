@@ -12,23 +12,20 @@ import sys
 from pathlib import Path
 
 
-def test_manual_pipe_approach():
+def test_manual_pipe_approach() -> bool:
     """Demonstrate why the manual pipe approach has timing issues."""
     print("🔍 Testing manual pipe approach (this may fail due to timing)...")
 
     try:
         # This is the problematic approach - it doesn't wait for proper initialization
         cmd = [
-            "bash", "-c",
-            '(echo \'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\'; sleep 2; echo \'{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\') | poetry run local-git-analyzer'
+            "bash",
+            "-c",
+            '(echo \'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\'; sleep 2; echo \'{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\') | poetry run local-git-analyzer',
         ]
 
         result = subprocess.run(
-            cmd,
-            cwd=Path(__file__).parent,
-            capture_output=True,
-            text=True,
-            timeout=10
+            cmd, cwd=Path(__file__).parent, capture_output=True, text=True, timeout=10
         )
 
         if result.returncode == 0:
@@ -48,7 +45,7 @@ def test_manual_pipe_approach():
         return False
 
 
-async def test_proper_client_approach():
+async def test_proper_client_approach() -> bool:
     """Test using the proper FastMCP client approach by connecting to HTTP."""
     print("\n🔍 Testing proper FastMCP client approach (connecting to HTTP server)...")
 
@@ -57,7 +54,6 @@ async def test_proper_client_approach():
         from fastmcp import Client
         from mcp.types import (  # Import mcp.types specifically
             BlobResourceContents,
-            CallToolResult,
             TextContent,
         )
 
@@ -84,10 +80,7 @@ async def test_proper_client_approach():
             # Test a tool call
             # Assuming you have a git repository in the current directory for testing
             tool_name = "analyze_working_directory"
-            tool_params = {
-                "repository_path": ".",
-                "include_diffs": False
-            }
+            tool_params = {"repository_path": ".", "include_diffs": False}
 
             print(f"🚀 Calling tool: {tool_name} with params: {tool_params}")
             # The client.call_tool method in FastMCP 2.10.6+ should return FastMCP's own CallToolResult,
@@ -98,7 +91,9 @@ async def test_proper_client_approach():
             # The previous error 'list' object has no attribute 'data' might still be an unexpected
             # scenario if FastMCP's client abstraction somehow failed to produce its own CallToolResult.
 
-            raw_result = await client.call_tool(tool_name, tool_params) # Keep this as is for now
+            raw_result = await client.call_tool(
+                tool_name, tool_params
+            )  # Keep this as is for now
 
             # We need to make sure 'raw_result' is indeed the FastMCP client's CallToolResult
             # If the client.call_tool itself is returning a bare list, that's an issue with fastmcp client setup.
@@ -108,7 +103,9 @@ async def test_proper_client_approach():
             )
 
             if not isinstance(raw_result, FastMCPCallToolResult):
-                print(f"❌ Unexpected return type from client.call_tool: {type(raw_result)}")
+                print(
+                    f"❌ Unexpected return type from client.call_tool: {type(raw_result)}"
+                )
                 print(f"Received content (if not FastMCPCallToolResult): {raw_result}")
                 return False
 
@@ -116,7 +113,9 @@ async def test_proper_client_approach():
             if raw_result.is_error:
                 print(f"❌ Tool call failed on server side. Error: {raw_result.content}")
                 if raw_result.structured_content:
-                    print(f"   Structured error: {json.dumps(raw_result.structured_content, indent=2)}")
+                    print(
+                        f"   Structured error: {json.dumps(raw_result.structured_content, indent=2)}"
+                    )
                 return False
 
             print("✅ Tool call successful")
@@ -135,32 +134,45 @@ async def test_proper_client_approach():
                 print("Using structured_content (raw JSON) as .data was None:")
                 print(json.dumps(tool_output_data, indent=2))
             else:
-                print("No structured data (.data or .structured_content) found. Checking raw .content blocks:")
+                print(
+                    "No structured data (.data or .structured_content) found. Checking raw .content blocks:"
+                )
                 for content_block in raw_result.content:
                     if isinstance(content_block, TextContent):
                         print(f"Text Content: {content_block.text}")
                     elif isinstance(content_block, BlobResourceContents):
-                        print(f"Binary Content (mimeType: {content_block.mimeType}): {len(content_block.blob)} bytes")
+                        print(
+                            f"Binary Content (mimeType: {content_block.mimeType}): {len(content_block.blob)} bytes"
+                        )
                     else:
                         print(f"Other content type: {type(content_block)}")
                 print("❌ Tool result did not contain expected structured data.")
-                return False # Fail the test if no structured data found
+                return False  # Fail the test if no structured data found
 
             print("-----------------------------\n")
 
             # Add a basic assertion to confirm the tool's output structure
             if not isinstance(tool_output_data, dict):
-                print(f"❌ Expected tool_output_data to be a dictionary, but got {type(tool_output_data)}")
+                print(
+                    f"❌ Expected tool_output_data to be a dictionary, but got {type(tool_output_data)}"
+                )
                 return False
 
             # Now assert on the *content* of the dictionary
-            if 'repository_path' not in tool_output_data or 'total_files_changed' not in tool_output_data:
-                print("❌ Tool result is missing expected keys ('repository_path' or 'total_files_changed').")
+            if (
+                "repository_path" not in tool_output_data
+                or "total_files_changed" not in tool_output_data
+            ):
+                print(
+                    "❌ Tool result is missing expected keys ('repository_path' or 'total_files_changed')."
+                )
                 return False
 
             # Example of a more specific assertion
-            if not isinstance(tool_output_data.get('total_files_changed'), int):
-                print(f"❌ 'total_files_changed' expected to be an int, got {type(tool_output_data.get('total_files_changed'))}")
+            if not isinstance(tool_output_data.get("total_files_changed"), int):
+                print(
+                    f"❌ 'total_files_changed' expected to be an int, got {type(tool_output_data.get('total_files_changed'))}"
+                )
                 return False
 
             print("✅ Tool result data structure confirmed.")
@@ -169,16 +181,19 @@ async def test_proper_client_approach():
         return True
 
     except ImportError:
-        print("❌ FastMCP or mcp library not available. Ensure they are installed in your environment.")
+        print(
+            "❌ FastMCP or mcp library not available. Ensure they are installed in your environment."
+        )
         return False
     except Exception as e:
         print(f"❌ Proper client approach error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
 
-def main():
+def main() -> bool:
     """Main test runner."""
     print("MCP Server Testing Comparison")
     print("=" * 50)
@@ -187,9 +202,15 @@ def main():
     manual_success = test_manual_pipe_approach()
 
     print("\n--- ATTENTION ---")
-    print("Please ensure your 'local_repo_analyzer_streamable_http.py' server is running")
-    print("e.g., by executing: poetry run uvicorn local_repo_analyzer_streamable_http:app --host 127.0.0.1 --port 9070 --log-level debug")
-    print("Or if using pm2: pm2 start 'poetry run uvicorn local_repo_analyzer_streamable_http:app --host 127.0.0.1 --port 9070 --log-level debug' --name local-repo-analyzer-fastmcp-fixed")
+    print(
+        "Please ensure your 'local_repo_analyzer_streamable_http.py' server is running"
+    )
+    print(
+        "e.g., by executing: poetry run uvicorn local_repo_analyzer_streamable_http:app --host 127.0.0.1 --port 9070 --log-level debug"
+    )
+    print(
+        "Or if using pm2: pm2 start 'poetry run uvicorn local_repo_analyzer_streamable_http:app --host 127.0.0.1 --port 9070 --log-level debug' --name local-repo-analyzer-fastmcp-fixed"
+    )
     print("-----------------\n")
 
     client_success = asyncio.run(test_proper_client_approach())
@@ -209,7 +230,9 @@ def main():
         print("1. It waits for initialization to complete")
         print("2. It handles the MCP protocol correctly")
         print("3. It manages the connection lifecycle properly")
-        print("\n🎯 RECOMMENDATION: Use the FastMCP client for testing, connecting to the HTTP endpoint directly.")
+        print(
+            "\n🎯 RECOMMENDATION: Use the FastMCP client for testing, connecting to the HTTP endpoint directly."
+        )
 
     return client_success
 

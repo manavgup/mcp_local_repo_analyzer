@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
-"""
-Improved CLI module for mcp_local_repo_analyzer with better transport handling
-"""
+"""Improved CLI module for mcp_local_repo_analyzer with better transport handling."""
 
 import argparse
 import logging
 import sys
 import traceback
 
+from mcp_local_repo_analyzer.main import create_server, register_tools
 from mcp_shared_lib.server.runner import run_server
 from mcp_shared_lib.transports.config import TransportConfig
 from mcp_shared_lib.utils import logging_service
-
-from mcp_local_repo_analyzer.main import create_server, register_tools
 
 logger = logging_service.get_logger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command line arguments"""
+    """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description="MCP Local Repository Analyzer Server",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -47,8 +44,8 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main():
-    """Main CLI entry point with improved transport handling"""
+def main() -> None:
+    """Run the main CLI entry point with improved transport handling."""
     args = parse_args()
 
     # Set up logging
@@ -133,7 +130,7 @@ def main():
         mcp.status_tracker = services["status_tracker"]
 
         # Register tools
-        register_tools(mcp)
+        register_tools(mcp, services)
 
         # Run server with the configured transport
         logger.info(f"Starting server with {config.type} transport")

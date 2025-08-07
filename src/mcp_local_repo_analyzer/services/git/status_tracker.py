@@ -2,10 +2,9 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
+from mcp_local_repo_analyzer.services.git import ChangeDetector
 from mcp_shared_lib.models import BranchStatus, LocalRepository, RepositoryStatus
 from mcp_shared_lib.services import GitClient
-
-from mcp_local_repo_analyzer.services.git import ChangeDetector
 
 if TYPE_CHECKING:
     from fastmcp import Context
@@ -15,6 +14,7 @@ class StatusTracker:
     """Service for tracking repository status and health."""
 
     def __init__(self, git_client: GitClient, change_detector: ChangeDetector):
+        """Initialize status tracker with required services."""
         self.git_client = git_client
         self.change_detector = change_detector
 

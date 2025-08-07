@@ -5,15 +5,16 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp import Context, FastMCP
-from mcp_shared_lib.models import LocalRepository
-from mcp_shared_lib.utils import find_git_root, is_git_repository
 from pydantic import Field
 
+from mcp_shared_lib.models import LocalRepository
+from mcp_shared_lib.utils import find_git_root, is_git_repository
 
-def register_unpushed_commits_tools(mcp: FastMCP) -> None:
+
+def register_unpushed_commits_tools(mcp: FastMCP, services: dict[str, Any]) -> None:
     """Register unpushed commits analysis tools."""
 
-    @mcp.tool()
+    @mcp.tool()  # type: ignore[misc]
     async def analyze_unpushed_commits(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
@@ -102,7 +103,8 @@ def register_unpushed_commits_tools(mcp: FastMCP) -> None:
             await ctx.debug("Getting branch information")
 
             # Get branch info first
-            services = ctx.app.state.services
+            # Access services from closure
+            current_services = services
             branch_info = await services["git_client"].get_branch_info(repo_path, ctx)
             current_branch = branch or branch_info.get("current_branch", "main")
 
@@ -122,7 +124,7 @@ def register_unpushed_commits_tools(mcp: FastMCP) -> None:
             await ctx.debug("Detecting unpushed commits")
 
             # Use existing UnpushedCommit model
-            unpushed_commits = await services[
+            unpushed_commits = await current_services[
                 "change_detector"
             ].detect_unpushed_commits(repo, ctx)
 
@@ -197,7 +199,7 @@ def register_unpushed_commits_tools(mcp: FastMCP) -> None:
             )
             return {"error": f"Failed to analyze unpushed commits: {str(e)}"}
 
-    @mcp.tool()
+    @mcp.tool()  # type: ignore[misc]
     async def compare_with_remote(
         ctx: Context,
         remote_name: str = Field(
@@ -276,7 +278,8 @@ def register_unpushed_commits_tools(mcp: FastMCP) -> None:
 
         try:
             await ctx.debug("Getting branch information")
-            services = ctx.app.state.services
+            # Access services from closure
+            current_services = services
             branch_info = await services["git_client"].get_branch_info(repo_path, ctx)
 
             await ctx.debug("Creating repository model")
@@ -289,7 +292,7 @@ def register_unpushed_commits_tools(mcp: FastMCP) -> None:
 
             await ctx.debug("Getting branch status")
             # Use existing BranchStatus model
-            branch_status = await services["status_tracker"].get_branch_status(
+            branch_status = await current_services["status_tracker"].get_branch_status(
                 repo, ctx
             )
 
@@ -352,7 +355,7 @@ def register_unpushed_commits_tools(mcp: FastMCP) -> None:
             await ctx.error(f"Failed to compare with remote: {str(e)}")
             return {"error": f"Failed to compare with remote: {str(e)}"}
 
-    @mcp.tool()
+    @mcp.tool()  # type: ignore[misc]
     async def analyze_commit_history(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
@@ -456,10 +459,11 @@ def register_unpushed_commits_tools(mcp: FastMCP) -> None:
 
             await ctx.debug("Getting unpushed commits for analysis")
             # Get unpushed commits (this is our main commit source for now)
-            services = ctx.app.state.services
-            all_commits = await services["change_detector"].detect_unpushed_commits(
-                repo, ctx
-            )
+            # Access services from closure
+            current_services = services
+            all_commits = await current_services[
+                "change_detector"
+            ].detect_unpushed_commits(repo, ctx)
 
             await ctx.debug(f"Found {len(all_commits)} total commits, applying filters")
 
@@ -495,8 +499,8 @@ def register_unpushed_commits_tools(mcp: FastMCP) -> None:
             await ctx.debug("Analyzing commit patterns and statistics")
 
             # Analyze patterns
-            authors_stats = {}
-            daily_commits = {}
+            authors_stats: dict[str, dict[str, int]] = {}
+            daily_commits: dict[str, int] = {}
             message_patterns = {
                 "fix": 0,
                 "feat": 0,
