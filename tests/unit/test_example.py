@@ -1,8 +1,7 @@
-import pytest
-
 """
 Example test file for mcp_local_repo_analyzer.
 """
+import pytest
 
 
 class TestExample:

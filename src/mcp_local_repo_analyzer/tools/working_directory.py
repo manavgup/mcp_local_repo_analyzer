@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp import Context, FastMCP
+from pydantic import Field
+
 from mcp_shared_lib.models import (
     BranchStatus,
     FileStatus,
@@ -12,13 +14,16 @@ from mcp_shared_lib.models import (
     WorkingDirectoryChanges,
 )
 from mcp_shared_lib.utils import find_git_root, is_git_repository
-from pydantic import Field
 
 
-def register_working_directory_tools(mcp: FastMCP) -> None:
+def register_working_directory_tools(mcp: FastMCP, services: dict[str, Any]) -> None:
     """Register enhanced working directory analysis tools."""
 
-    @mcp.tool()
+    # Create closure to capture services
+    def get_services() -> dict[str, Any]:
+        return services
+
+    @mcp.tool()  # type: ignore[misc]
     async def analyze_working_directory(
         ctx: Context,
         repository_path: str = Field(
@@ -33,7 +38,6 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
         ),
     ) -> dict[str, Any]:
         """Analyze uncommitted changes in working directory."""
-
         import time
         from pathlib import Path
 
@@ -69,8 +73,8 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.debug("Detecting working directory changes")
 
             # Detect working directory changes - returns WorkingDirectoryChanges model
-            services = ctx.app.state.services
-            changes = await services[
+            current_services = get_services()
+            changes = await current_services[
                 "change_detector"
             ].detect_working_directory_changes(repo, ctx)
 
@@ -81,12 +85,14 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             working_dir_status = changes
 
             # Categorize changes
-            categorization = services["diff_analyzer"].categorize_changes(
+            categorization = current_services["diff_analyzer"].categorize_changes(
                 changes.all_files
             )
 
             # Assess risk
-            risk_assessment = services["diff_analyzer"].assess_risk(changes.all_files)
+            risk_assessment = current_services["diff_analyzer"].assess_risk(
+                changes.all_files
+            )
 
             # Create RepositoryStatus model
             repository_status = RepositoryStatus(
@@ -120,7 +126,11 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
                     f"Generating diffs for {min(10, len(changes.all_files))} files"
                 )
                 diffs = await _get_file_diffs(
-                    services, repo_path, changes.all_files[:10], max_diff_lines, ctx
+                    current_services,
+                    repo_path,
+                    changes.all_files[:10],
+                    max_diff_lines,
+                    ctx,
                 )
                 result["diffs"] = diffs
 
@@ -130,7 +140,7 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
                 f"Working directory analysis completed in {duration:.2f} seconds"
             )
 
-            return result
+            return result  # type: ignore[no-any-return]
 
         except Exception as e:
             duration = time.time() - start_time
@@ -139,7 +149,7 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             )
             return {"error": f"Failed to analyze working directory: {str(e)}"}
 
-    @mcp.tool()
+    @mcp.tool()  # type: ignore[misc]
     async def get_file_diff(
         ctx: Context,
         file_path: str = Field(
@@ -218,8 +228,8 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.debug(f"Executing git diff command for {file_path}")
 
             # Get diff from git
-            services = ctx.app.state.services
-            diff_content = await services["git_client"].get_diff(
+            current_services = get_services()
+            diff_content = await current_services["git_client"].get_diff(
                 repo_path, staged=staged, file_path=file_path, ctx=ctx
             )
 
@@ -234,7 +244,7 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.debug("Parsing diff content")
 
             # Parse diff using existing FileDiff model
-            file_diffs = services["diff_analyzer"].parse_diff(diff_content)
+            file_diffs = current_services["diff_analyzer"].parse_diff(diff_content)
 
             if not file_diffs:
                 await ctx.warning(
@@ -284,13 +294,10 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.error(f"Failed to get diff for {file_path}: {str(e)}")
             return {"error": f"Failed to get diff for {file_path}: {str(e)}"}
 
-    @mcp.tool()
+    @mcp.tool()  # type: ignore[misc]
     async def get_untracked_files(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
-        include_ignored: bool = Field(
-            False, description="Include ignored files in the list"
-        ),
     ) -> dict[str, Any]:
         """Get list of untracked files.
 
@@ -351,8 +358,8 @@ def register_working_directory_tools(mcp: FastMCP) -> None:
             await ctx.debug(
                 "Detecting working directory changes to find untracked files"
             )
-            services = ctx.app.state.services
-            changes: WorkingDirectoryChanges = await services[
+            current_services = get_services()
+            changes: WorkingDirectoryChanges = await current_services[
                 "change_detector"
             ].detect_working_directory_changes(repo, ctx)
 

@@ -7,12 +7,11 @@ import logging
 import os
 import sys
 import traceback
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastmcp import FastMCP
-from mcp_shared_lib.config import settings
-from mcp_shared_lib.services import GitClient
-from mcp_shared_lib.utils import logging_service
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -21,6 +20,9 @@ from mcp_local_repo_analyzer.services.git import (
     DiffAnalyzer,
     StatusTracker,
 )
+from mcp_shared_lib.config import settings
+from mcp_shared_lib.services import GitClient
+from mcp_shared_lib.utils import logging_service
 
 logger = logging_service.get_logger(__name__)
 
@@ -30,7 +32,7 @@ _initialization_lock = asyncio.Lock()
 
 
 @asynccontextmanager
-async def lifespan(_app):
+async def lifespan(_app: Any) -> AsyncIterator[None]:
     """Manage server lifecycle for proper startup and shutdown."""
     global _server_initialized
     logger.info("FastMCP server starting up...")
@@ -51,7 +53,7 @@ async def lifespan(_app):
             _server_initialized = False
 
 
-def create_server() -> tuple[FastMCP, dict]:
+def create_server() -> tuple[FastMCP, dict[str, Any]]:
     """Create and configure the FastMCP server."""
     try:
         logger.info("Creating FastMCP server instance...")
@@ -80,7 +82,7 @@ def create_server() -> tuple[FastMCP, dict]:
         logger.info("FastMCP server instance created successfully")
 
         # Add health check endpoints for HTTP mode
-        @mcp.custom_route("/health", methods=["GET"])
+        @mcp.custom_route("/health", methods=["GET"])  # type: ignore[misc]
         async def health_check(_request: Request) -> JSONResponse:
             return JSONResponse(
                 {
@@ -91,7 +93,7 @@ def create_server() -> tuple[FastMCP, dict]:
                 }
             )
 
-        @mcp.custom_route("/healthz", methods=["GET"])
+        @mcp.custom_route("/healthz", methods=["GET"])  # type: ignore[misc]
         async def health_check_z(_request: Request) -> JSONResponse:
             return JSONResponse(
                 {
@@ -150,7 +152,7 @@ def create_server() -> tuple[FastMCP, dict]:
         raise
 
 
-def register_tools(mcp: FastMCP):
+def register_tools(mcp: FastMCP, services: dict[str, Any]) -> None:
     """Register all tools with the FastMCP server."""
     try:
         logger.info("Starting tool registration")
@@ -162,7 +164,7 @@ def register_tools(mcp: FastMCP):
             )
 
             logger.info("Registering working directory tools")
-            register_working_directory_tools(mcp)
+            register_working_directory_tools(mcp, services)
             logger.info("Working directory tools registered successfully")
         except Exception as e:
             logger.error(f"Failed to register working directory tools: {e}")
@@ -174,7 +176,7 @@ def register_tools(mcp: FastMCP):
             )
 
             logger.info("Registering staging area tools")
-            register_staging_area_tools(mcp)
+            register_staging_area_tools(mcp, services)
             logger.info("Staging area tools registered successfully")
         except Exception as e:
             logger.error(f"Failed to register staging area tools: {e}")
@@ -186,7 +188,7 @@ def register_tools(mcp: FastMCP):
             )
 
             logger.info("Registering unpushed commits tools")
-            register_unpushed_commits_tools(mcp)
+            register_unpushed_commits_tools(mcp, services)
             logger.info("Unpushed commits tools registered successfully")
         except Exception as e:
             logger.error(f"Failed to register unpushed commits tools: {e}")
@@ -196,7 +198,7 @@ def register_tools(mcp: FastMCP):
             from mcp_local_repo_analyzer.tools.summary import register_summary_tools
 
             logger.info("Registering summary tools")
-            register_summary_tools(mcp)
+            register_summary_tools(mcp, services)
             logger.info("Summary tools registered successfully")
         except Exception as e:
             logger.error(f"Failed to register summary tools: {e}")
@@ -210,7 +212,7 @@ def register_tools(mcp: FastMCP):
         raise
 
 
-async def run_stdio_server():
+async def run_stdio_server() -> None:
     """Run the server in STDIO mode for direct MCP client connections."""
     try:
         logger.info("=== Starting Local Repo Analyzer (STDIO) ===")
@@ -221,21 +223,16 @@ async def run_stdio_server():
         logger.info("Creating server and services...")
         mcp, services = create_server()
 
-        # Store services in the app state for tools to access
-        logger.info("Setting up server context...")
-        mcp.app.state.services = services
-        logger.info("Server context configured")
-
-        # Register tools
+        # Register tools with services
         logger.info("Registering tools...")
-        register_tools(mcp)
+        register_tools(mcp, services)
         logger.info("Tools registration completed")
 
         # Run the server with enhanced error handling
         try:
             logger.info("Starting FastMCP server in stdio mode...")
             logger.info("Server is ready to receive MCP messages")
-            await mcp.run_stdio()
+            await mcp.run_stdio_async()
         except (BrokenPipeError, EOFError) as e:
             # Handle stdio stream closure gracefully
             logger.info(
@@ -261,7 +258,7 @@ async def run_stdio_server():
 
 def run_http_server(
     host: str = "127.0.0.1", port: int = 9070, transport: str = "streamable-http"
-):
+) -> None:
     """Run the server in HTTP mode for MCP Gateway integration."""
     logger.info("=== Starting Local Repo Analyzer (HTTP) ===")
     logger.info(f"🌐 Transport: {transport}")
@@ -273,17 +270,9 @@ def run_http_server(
         logger.info("Creating server and services...")
         mcp, services = create_server()
 
-        # Store services on the mcp instance for tools to access
-        logger.info("Setting up server context...")
-        mcp.git_client = services["git_client"]
-        mcp.change_detector = services["change_detector"]
-        mcp.diff_analyzer = services["diff_analyzer"]
-        mcp.status_tracker = services["status_tracker"]
-        logger.info("Server context configured")
-
-        # Register tools
+        # Register tools with services
         logger.info("Registering tools...")
-        register_tools(mcp)
+        register_tools(mcp, services)
         logger.info("Tools registration completed")
 
         # Create HTTP app
@@ -301,8 +290,8 @@ def run_http_server(
         sys.exit(1)
 
 
-def main():
-    """Main entry point with command line argument parsing."""
+def main() -> None:
+    """Run the main entry point with command line argument parsing."""
     parser = argparse.ArgumentParser(description="MCP Local Repository Analyzer")
     parser.add_argument(
         "--transport",

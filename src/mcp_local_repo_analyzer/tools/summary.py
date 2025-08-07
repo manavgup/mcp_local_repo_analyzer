@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp import Context, FastMCP
+from pydantic import Field
+
 from mcp_shared_lib.models import (
     ChangeCategorization,
     LocalRepository,
@@ -13,13 +15,12 @@ from mcp_shared_lib.models import (
     RiskAssessment,
 )
 from mcp_shared_lib.utils import find_git_root, is_git_repository
-from pydantic import Field
 
 
-def register_summary_tools(mcp: FastMCP) -> None:
+def register_summary_tools(mcp: FastMCP, services: dict[str, Any]) -> None:
     """Register summary and analysis tools."""
 
-    @mcp.tool()
+    @mcp.tool()  # type: ignore[misc]
     async def get_outstanding_summary(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
@@ -123,8 +124,10 @@ def register_summary_tools(mcp: FastMCP) -> None:
             await ctx.debug("Getting branch information")
 
             # Get branch info
-            services = ctx.app.state.services
-            branch_info = await services["git_client"].get_branch_info(repo_path, ctx)
+            current_services = services
+            branch_info = await current_services["git_client"].get_branch_info(
+                repo_path, ctx
+            )
 
             await ctx.report_progress(1, 6)
             await ctx.debug("Creating repository model")
@@ -140,9 +143,9 @@ def register_summary_tools(mcp: FastMCP) -> None:
             await ctx.info("Analyzing all repository components...")
 
             # Get complete repository status using existing RepositoryStatus model
-            repo_status = await services["status_tracker"].get_repository_status(
-                repo, ctx
-            )
+            repo_status = await current_services[
+                "status_tracker"
+            ].get_repository_status(repo, ctx)
 
             await ctx.report_progress(3, 6)
             await ctx.debug("Categorizing and analyzing file changes")
@@ -154,8 +157,12 @@ def register_summary_tools(mcp: FastMCP) -> None:
             )
 
             await ctx.debug(f"Analyzing {len(all_changed_files)} total changed files")
-            categories = services["diff_analyzer"].categorize_changes(all_changed_files)
-            risk_assessment = services["diff_analyzer"].assess_risk(all_changed_files)
+            categories = current_services["diff_analyzer"].categorize_changes(
+                all_changed_files
+            )
+            risk_assessment = current_services["diff_analyzer"].assess_risk(
+                all_changed_files
+            )
 
             await ctx.report_progress(4, 6)
             await ctx.debug("Generating recommendations and summary")
@@ -273,7 +280,7 @@ def register_summary_tools(mcp: FastMCP) -> None:
             )
             return {"error": f"Failed to get outstanding summary: {str(e)}"}
 
-    @mcp.tool()
+    @mcp.tool()  # type: ignore[misc]
     async def analyze_repository_health(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
@@ -356,10 +363,10 @@ def register_summary_tools(mcp: FastMCP) -> None:
             )
 
             await ctx.debug("Gathering health metrics")
-            services = ctx.app.state.services
-            health_metrics = await services["status_tracker"].get_health_metrics(
-                repo, ctx
-            )
+            current_services = services
+            health_metrics = await current_services[
+                "status_tracker"
+            ].get_health_metrics(repo, ctx)
 
             await ctx.debug("Calculating health score")
             # Determine overall health score (0-100)
@@ -442,7 +449,7 @@ def register_summary_tools(mcp: FastMCP) -> None:
             )
             return {"error": f"Failed to analyze repository health: {str(e)}"}
 
-    @mcp.tool()
+    @mcp.tool()  # type: ignore[misc]
     async def get_push_readiness(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
@@ -518,8 +525,10 @@ def register_summary_tools(mcp: FastMCP) -> None:
 
         try:
             await ctx.debug("Getting branch information")
-            services = ctx.app.state.services
-            branch_info = await services["git_client"].get_branch_info(repo_path, ctx)
+            current_services = services
+            branch_info = await current_services["git_client"].get_branch_info(
+                repo_path, ctx
+            )
 
             await ctx.debug("Creating repository model")
             repo = LocalRepository(
@@ -530,9 +539,9 @@ def register_summary_tools(mcp: FastMCP) -> None:
             )
 
             await ctx.debug("Getting repository status for push readiness check")
-            repo_status = await services["status_tracker"].get_repository_status(
-                repo, ctx
-            )
+            repo_status = await current_services[
+                "status_tracker"
+            ].get_repository_status(repo, ctx)
 
             await ctx.debug("Checking push readiness criteria")
             # Check readiness criteria
@@ -613,7 +622,7 @@ def register_summary_tools(mcp: FastMCP) -> None:
             await ctx.error(f"Failed to assess push readiness: {str(e)}")
             return {"error": f"Failed to assess push readiness: {str(e)}"}
 
-    @mcp.tool()
+    @mcp.tool()  # type: ignore[misc]
     async def analyze_stashed_changes(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
@@ -686,10 +695,10 @@ def register_summary_tools(mcp: FastMCP) -> None:
             )
 
             await ctx.debug("Detecting stashed changes")
-            services = ctx.app.state.services
-            stashed_changes = await services["change_detector"].detect_stashed_changes(
-                repo, ctx
-            )
+            current_services = services
+            stashed_changes = await current_services[
+                "change_detector"
+            ].detect_stashed_changes(repo, ctx)
 
             if not stashed_changes:
                 await ctx.info("No stashed changes found")
@@ -731,7 +740,7 @@ def register_summary_tools(mcp: FastMCP) -> None:
             await ctx.error(f"Failed to analyze stashed changes: {str(e)}")
             return {"error": f"Failed to analyze stashed changes: {str(e)}"}
 
-    @mcp.tool()
+    @mcp.tool()  # type: ignore[misc]
     async def detect_conflicts(
         ctx: Context,
         repository_path: str = Field(default=".", description="Path to git repository"),
@@ -802,8 +811,10 @@ def register_summary_tools(mcp: FastMCP) -> None:
 
         try:
             await ctx.debug("Getting branch information")
-            services = ctx.app.state.services
-            branch_info = await services["git_client"].get_branch_info(repo_path, ctx)
+            current_services = services
+            branch_info = await current_services["git_client"].get_branch_info(
+                repo_path, ctx
+            )
             current_branch = branch_info.get("current_branch", "main")
 
             if current_branch == target_branch:
@@ -826,19 +837,19 @@ def register_summary_tools(mcp: FastMCP) -> None:
 
             await ctx.debug("Getting working directory and staged changes")
             # Get working directory and staged changes
-            working_changes = await services[
+            working_changes = await current_services[
                 "change_detector"
             ].detect_working_directory_changes(repo, ctx)
-            staged_changes = await services["change_detector"].detect_staged_changes(
-                repo, ctx
-            )
+            staged_changes = await current_services[
+                "change_detector"
+            ].detect_staged_changes(repo, ctx)
 
             await ctx.debug("Analyzing potential conflicts")
             # Simple conflict detection based on file changes
             all_files = working_changes.all_files + staged_changes.staged_files
 
             # Assess risk of conflicts using existing risk assessment
-            risk_assessment = services["diff_analyzer"].assess_risk(all_files)
+            risk_assessment = current_services["diff_analyzer"].assess_risk(all_files)
             potential_conflicts = risk_assessment.potential_conflicts
 
             await ctx.debug("Applying conflict detection heuristics")

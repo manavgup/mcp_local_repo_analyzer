@@ -21,7 +21,7 @@ async def analyze_repo(repo_path: str):
     # Create server instance directly (in-memory approach)
     server = create_server()
     register_tools(server)
-    
+
     # Create client with in-memory transport
     client = Client(server)
 

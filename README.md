@@ -8,7 +8,7 @@ A FastMCP server for analyzing outstanding local git changes that haven't made t
 ## Features
 
 - **Working Directory Analysis**: Detect uncommitted changes
-- **Staging Area Analysis**: Analyze staged changes ready for commit  
+- **Staging Area Analysis**: Analyze staged changes ready for commit
 - **Unpushed Commits**: Find commits that haven't been pushed to remote
 - **Stash Analysis**: Examine stashed changes
 - **Risk Assessment**: Identify high-risk changes and potential conflicts

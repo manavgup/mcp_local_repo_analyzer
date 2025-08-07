@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from fastmcp.server.dependencies import get_context
+
 from mcp_shared_lib.config.git_analyzer import GitAnalyzerSettings
 from mcp_shared_lib.models import (
     ChangeCategorization,
@@ -21,9 +22,10 @@ class DiffAnalyzer:
     """Service for analyzing git diffs and generating insights."""
 
     def __init__(self, settings: GitAnalyzerSettings):
+        """Initialize diff analyzer with settings."""
         self.settings = settings
 
-    def _get_context(self):
+    def _get_context(self) -> Any:
         """Get FastMCP context if available."""
         try:
             return get_context()
@@ -31,7 +33,7 @@ class DiffAnalyzer:
             # No context available (e.g., during testing)
             return None
 
-    def _log_if_context(self, level: str, message: str):
+    def _log_if_context(self, level: str, message: str) -> None:
         """Log message if context is available."""
         # Try to get context for additional info, but don't await
         try:
@@ -146,8 +148,10 @@ class DiffAnalyzer:
             if line.startswith("@@"):
                 # Save previous hunk
                 if current_hunk:
-                    current_hunk.content = "\n".join(hunk_content)
+                    current_hunk.content = "\n".join(hunk_content)  # type: ignore[unreachable]
                     hunks.append(current_hunk)
+                # Reset for new hunk
+                hunk_content.clear()
 
                 # Parse hunk header
                 hunk_match = re.match(r"@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@", line)

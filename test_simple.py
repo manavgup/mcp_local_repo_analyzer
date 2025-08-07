@@ -11,23 +11,20 @@ import sys
 from pathlib import Path
 
 
-def test_manual_pipe_approach():
+def test_manual_pipe_approach() -> bool:
     """Demonstrate why the manual pipe approach has timing issues."""
     print("🔍 Testing manual pipe approach (this may fail due to timing)...")
 
     try:
         # This is the problematic approach - it doesn't wait for proper initialization
         cmd = [
-            "bash", "-c",
-            '(echo \'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\'; sleep 2; echo \'{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\') | poetry run local-git-analyzer'
+            "bash",
+            "-c",
+            '(echo \'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\'; sleep 2; echo \'{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\') | poetry run local-git-analyzer',
         ]
 
         result = subprocess.run(
-            cmd,
-            cwd=Path(__file__).parent,
-            capture_output=True,
-            text=True,
-            timeout=10
+            cmd, cwd=Path(__file__).parent, capture_output=True, text=True, timeout=10
         )
 
         if result.returncode == 0:
@@ -47,7 +44,7 @@ def test_manual_pipe_approach():
         return False
 
 
-async def test_proper_client_approach():
+async def test_proper_client_approach() -> bool:
     """Test using the proper FastMCP client approach."""
     print("\n🔍 Testing proper FastMCP client approach...")
 
@@ -57,10 +54,7 @@ async def test_proper_client_approach():
         from fastmcp.client.transports import StdioTransport
 
         # Create proper transport
-        transport = StdioTransport(
-            command="poetry",
-            args=["run", "local-git-analyzer"]
-        )
+        transport = StdioTransport(command="poetry", args=["run", "local-git-analyzer"])
         client = Client(transport)
 
         async with client:
@@ -75,10 +69,10 @@ async def test_proper_client_approach():
             print(f"✅ Available tools: {len(tools)}")
 
             # Test a tool call
-            await client.call_tool("analyze_working_directory", {
-                "repository_path": ".",
-                "include_diffs": False
-            })
+            await client.call_tool(
+                "analyze_working_directory",
+                {"repository_path": ".", "include_diffs": False},
+            )
             print("✅ Tool call successful")
 
         print("✅ Proper client approach succeeded")
@@ -92,7 +86,7 @@ async def test_proper_client_approach():
         return False
 
 
-def main():
+def main() -> bool:
     """Main test runner."""
     print("MCP Server Testing Comparison")
     print("=" * 50)

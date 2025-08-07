@@ -11,14 +11,14 @@ from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from mcp_shared_lib.config import GitAnalyzerSettings
-from mcp_shared_lib.models.git.changes import FileStatus, WorkingDirectoryChanges
-from mcp_shared_lib.models.git.repository import LocalRepository
-from mcp_shared_lib.services.git.git_client import GitClient
 
 from mcp_local_repo_analyzer.services.git.change_detector import ChangeDetector
 from mcp_local_repo_analyzer.services.git.diff_analyzer import DiffAnalyzer
 from mcp_local_repo_analyzer.services.git.status_tracker import StatusTracker
+from mcp_shared_lib.config import GitAnalyzerSettings
+from mcp_shared_lib.models.git.changes import FileStatus, WorkingDirectoryChanges
+from mcp_shared_lib.models.git.repository import LocalRepository
+from mcp_shared_lib.services.git.git_client import GitClient
 
 
 class TestGitClient:
@@ -53,7 +53,10 @@ class TestGitClient:
             mock_subprocess.assert_called_once()
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(os.getenv("CI") == "true", reason="Test has git repository path issues in CI environment")
+    @pytest.mark.skipif(
+        os.getenv("CI") == "true",
+        reason="Test has git repository path issues in CI environment",
+    )
     async def test_get_status(self):
         """Test git status parsing."""
         with patch.object(self.git_client, "execute_command") as mock_exec:
@@ -95,7 +98,9 @@ class TestChangeDetector:
         )
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(os.getenv("CI") == "true", reason="Test has async mock issues in CI environment")
+    @pytest.mark.skipif(
+        os.getenv("CI") == "true", reason="Test has async mock issues in CI environment"
+    )
     async def test_detect_working_directory_changes(self):
         """Test working directory change detection."""
         # Mock git status response
@@ -135,7 +140,9 @@ class TestChangeDetector:
         assert len(result.untracked_files) == 1
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(os.getenv("CI") == "true", reason="Test has async mock issues in CI environment")
+    @pytest.mark.skipif(
+        os.getenv("CI") == "true", reason="Test has async mock issues in CI environment"
+    )
     async def test_detect_staged_changes(self):
         """Test staged changes detection with corrected logic."""
         # Mock git status response
