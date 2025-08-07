@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+        - prerelease
+  push:
+    branches:
+      - main
+    paths:
+      - 'CHANGELOG.md'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+        with:
+          path: mcp_local_repo_analyzer
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout shared library
+        uses: actions/checkout@v4
+        with:
+          repository: manavgup/mcp_shared_lib
+          path: mcp_shared_lib
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: mcp_local_repo_analyzer/.venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('mcp_local_repo_analyzer/**/poetry.lock') }}
+
+      - name: Install dependencies
+        working-directory: mcp_local_repo_analyzer
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --with dev
+
+      - name: Run tests
+        working-directory: mcp_local_repo_analyzer
+        run: |
+          make test
+
+      - name: Run quality checks
+        working-directory: mcp_local_repo_analyzer
+        run: |
+          make quality-check
+
+      - name: Configure git
+        working-directory: mcp_local_repo_analyzer
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Generate release (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: mcp_local_repo_analyzer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          case "${{ github.event.inputs.version_type }}" in
+            patch)
+              poetry run semantic-release version --patch --vcs-release
+              ;;
+            minor)
+              poetry run semantic-release version --minor --vcs-release
+              ;;
+            major)
+              poetry run semantic-release version --major --vcs-release
+              ;;
+            prerelease)
+              poetry run semantic-release version --prerelease --vcs-release
+              ;;
+          esac
+
+      - name: Generate release (automatic)
+        if: github.event_name == 'push'
+        working-directory: mcp_local_repo_analyzer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          poetry run semantic-release version --vcs-release
+
+      - name: Build package
+        working-directory: mcp_local_repo_analyzer
+        run: |
+          poetry build
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: mcp_local_repo_analyzer/dist/
+          retention-days: 30
+
+      # Uncomment when ready to publish to PyPI
+      # - name: Publish to PyPI
+      #   if: success()
+      #   working-directory: mcp_local_repo_analyzer
+      #   env:
+      #     PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+      #   run: |
+      #     poetry publish --username __token__ --password $PYPI_TOKEN
