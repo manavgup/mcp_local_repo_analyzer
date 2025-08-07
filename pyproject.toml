@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mcp-local-repo-analyzer"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP server for analyzing outstanding git changes in repositories"
 authors = ["Manav Gupta <manavg@gmail.com>"]
 readme = "README.md"
