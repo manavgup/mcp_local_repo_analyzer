@@ -1677,17 +1677,18 @@ ws = ["websockets (>=15.0.1)"]
 
 [[package]]
 name = "mcp-shared-lib"
-version = "0.1.0"
+version = "0.2.0"
 description = "Shared library for MCP components providing common utilities, models, and tools"
 optional = false
-python-versions = "^3.9"
+python-versions = "^3.10"
 files = []
 develop = false
 
 [package.dependencies]
 fastapi = "^0.116.1"
 pathlib = "^1.0.1"
-pydantic = "^2.5.0"
+pydantic = {version = "^2.11.7", extras = ["mypy"]}
+pydantic-settings = "^2.10.1"
 sse-starlette = "^2.4.1"
 typing-extensions = "^4.8.0"
 uvicorn = "^0.35.0"
@@ -1695,8 +1696,8 @@ uvicorn = "^0.35.0"
 [package.source]
 type = "git"
 url = "https://github.com/manavgup/mcp_shared_lib.git"
-reference = "HEAD"
-resolved_reference = "1c20975f3d3c68de9dbd444c78bbba900a2ea1a2"
+reference = "master"
+resolved_reference = "ed86ba158267af37be5899965618e8ccadb1305e"
 
 [[package]]
 name = "mdurl"
@@ -3886,4 +3887,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "ee1f1965d21f91e86db13444cddaaf619d4d7b18942a59f97d4a94f5a5ebec31"
+content-hash = "773cf4a9cbb10c9dbd7b43e69fa65080375fbdf2e5b6c18008d035111bf147e1"
