@@ -526,9 +526,34 @@ def register_unpushed_commits_tools(mcp: FastMCP, services: dict[str, Any]) -> N
                 date_str = commit.date.strftime("%Y-%m-%d")
                 daily_commits[date_str] = daily_commits.get(date_str, 0) + 1
 
-                # Message pattern analysis
+                # Message pattern analysis - check for conventional commit prefixes first
                 msg_lower = commit.message.lower()
-                if any(word in msg_lower for word in ["fix", "bug", "patch"]):
+
+                # Check for conventional commit format (prefix: message)
+                if msg_lower.startswith("fix:") or msg_lower.startswith("fix("):
+                    message_patterns["fix"] += 1
+                elif msg_lower.startswith("feat:") or msg_lower.startswith("feat("):
+                    message_patterns["feat"] += 1
+                elif (
+                    msg_lower.startswith("docs:")
+                    or msg_lower.startswith("doc:")
+                    or msg_lower.startswith("docs(")
+                    or msg_lower.startswith("doc(")
+                ):
+                    message_patterns["docs"] += 1
+                elif (
+                    msg_lower.startswith("test:")
+                    or msg_lower.startswith("tests:")
+                    or msg_lower.startswith("test(")
+                    or msg_lower.startswith("tests(")
+                ):
+                    message_patterns["test"] += 1
+                elif msg_lower.startswith("refactor:") or msg_lower.startswith(
+                    "refactor("
+                ):
+                    message_patterns["refactor"] += 1
+                # Fallback to keyword matching if not conventional commit format
+                elif any(word in msg_lower for word in ["fix", "bug", "patch"]):
                     message_patterns["fix"] += 1
                 elif any(word in msg_lower for word in ["feat", "add", "new"]):
                     message_patterns["feat"] += 1

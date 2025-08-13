@@ -146,7 +146,7 @@ async def test_analyze_repo_with_unstaged_changes(tmp_path):
     server.change_detector = services["change_detector"]
     server.diff_analyzer = services["diff_analyzer"]
     server.status_tracker = services["status_tracker"]
-    register_tools(server)
+    register_tools(server, services)
     client = Client(server)
 
     async with client:
@@ -274,7 +274,7 @@ async def test_analyze_repo_with_staged_changes(tmp_path):
     server.change_detector = services["change_detector"]
     server.diff_analyzer = services["diff_analyzer"]
     server.status_tracker = services["status_tracker"]
-    register_tools(server)
+    register_tools(server, services)
     client = Client(server)
 
     async with client:

@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
-"""Improved CLI module for mcp_local_repo_analyzer with better transport handling."""
+"""CLI module for mcp_local_repo_analyzer - simplified to match main.py pattern."""
 
 import argparse
 import logging
 import sys
-import traceback
 
-from mcp_local_repo_analyzer.main import create_server, register_tools
-from mcp_shared_lib.server.runner import run_server
-from mcp_shared_lib.transports.config import TransportConfig
+from mcp_local_repo_analyzer.main import main as run_main
 from mcp_shared_lib.utils import logging_service
 
 logger = logging_service.get_logger(__name__)
@@ -23,17 +20,15 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--transport",
-        type=str,
+        choices=["stdio", "streamable-http", "sse"],
         default="stdio",
-        choices=["stdio", "http", "websocket", "sse"],
-        help="Transport type",
-    )
-    parser.add_argument("--config", type=str, help="Path to transport config YAML")
-    parser.add_argument(
-        "--port", type=int, help="Port to run the server on (overrides config/env)"
+        help="Transport protocol to use",
     )
     parser.add_argument(
-        "--host", type=str, help="Host to bind the server to (overrides config/env)"
+        "--host", default="127.0.0.1", help="Host to bind to (HTTP mode only)"
+    )
+    parser.add_argument(
+        "--port", type=int, default=9070, help="Port to bind to (HTTP mode only)"
     )
     parser.add_argument(
         "--log-level",
@@ -41,108 +36,48 @@ def parse_args() -> argparse.Namespace:
         default="INFO",
         help="Logging level",
     )
+    parser.add_argument(
+        "--work-dir", help="Default working directory for Git operations"
+    )
     return parser.parse_args()
 
 
 def main() -> None:
-    """Run the main CLI entry point with improved transport handling."""
+    """CLI entry point - delegates to main.py with CLI arguments."""
     args = parse_args()
 
     # Set up logging
-    logging.basicConfig(level=getattr(logging, args.log_level))
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper()),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+    # Convert CLI args to sys.argv format that main.py expects
+    old_argv = sys.argv[:]
 
     try:
-        logger.info("Starting MCP Local Repository Analyzer Server")
-        logger.info(f"Transport: {args.transport}")
-        logger.info(f"Python version: {sys.version}")
+        # Build argv for main.py
+        sys.argv = ["main.py"]
+        sys.argv.extend(["--transport", args.transport])
+        sys.argv.extend(["--host", args.host])
+        sys.argv.extend(["--port", str(args.port)])
+        sys.argv.extend(["--log-level", args.log_level])
+        if args.work_dir:
+            sys.argv.extend(["--work-dir", args.work_dir])
 
-        # Handle stdio transport specially (for FastMCP compatibility)
-        if args.transport == "stdio" or not args.transport:
-            logger.info("Using FastMCP stdio mode")
-            try:
-                # Import and run FastMCP main directly for stdio
-                from mcp_local_repo_analyzer.main import main as fastmcp_main
-
-                fastmcp_main()
-                return
-            except Exception as e:
-                logger.error(f"FastMCP stdio mode failed: {e}")
-                logger.error("Falling back to mcp_shared_lib stdio transport")
-                # Continue with mcp_shared_lib transport as fallback
-
-        # Load config for non-stdio transports or stdio fallback
-        if args.config:
-            config = TransportConfig.from_file(args.config)
-        else:
-            config = TransportConfig.from_env()
-            if args.transport:
-                config.type = args.transport
-
-            # Apply command line overrides
-            if args.port:
-                if config.type == "http":
-                    if not config.http:
-                        from mcp_shared_lib.transports.config import HTTPConfig
-
-                        config.http = HTTPConfig()
-                    config.http.port = args.port
-                elif config.type == "websocket":
-                    if not config.websocket:
-                        from mcp_shared_lib.transports.config import WebSocketConfig
-
-                        config.websocket = WebSocketConfig()
-                    config.websocket.port = args.port
-                elif config.type == "sse":
-                    if not config.sse:
-                        from mcp_shared_lib.transports.config import SSEConfig
-
-                        config.sse = SSEConfig()
-                    config.sse.port = args.port
-
-            if args.host:
-                if config.type == "http":
-                    if not config.http:
-                        from mcp_shared_lib.transports.config import HTTPConfig
-
-                        config.http = HTTPConfig()
-                    config.http.host = args.host
-                elif config.type == "websocket":
-                    if not config.websocket:
-                        from mcp_shared_lib.transports.config import WebSocketConfig
-
-                        config.websocket = WebSocketConfig()
-                    config.websocket.host = args.host
-                elif config.type == "sse":
-                    if not config.sse:
-                        from mcp_shared_lib.transports.config import SSEConfig
-
-                        config.sse = SSEConfig()
-                    config.sse.host = args.host
-
-        # Create and register server for mcp_shared_lib transports
-        logger.info(f"Creating server for {config.type} transport")
-        mcp, services = create_server()
-
-        # Set up service dependencies
-        mcp.git_client = services["git_client"]
-        mcp.change_detector = services["change_detector"]
-        mcp.diff_analyzer = services["diff_analyzer"]
-        mcp.status_tracker = services["status_tracker"]
-
-        # Register tools
-        register_tools(mcp, services)
-
-        # Run server with the configured transport
-        logger.info(f"Starting server with {config.type} transport")
-        run_server(mcp, config, server_name="Local Git Analyzer")
+        # Call main.py's main function directly
+        logger.info("Delegating to main.py with CLI arguments")
+        run_main()
 
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
         sys.exit(0)
     except Exception as e:
         logger.error(f"Server error: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
         sys.exit(1)
+    finally:
+        # Restore original argv
+        sys.argv = old_argv
 
 
 if __name__ == "__main__":
