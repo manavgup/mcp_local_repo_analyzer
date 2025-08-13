@@ -405,8 +405,6 @@ async def integration_test():
 
 
 if __name__ == "__main__":
-    import sys
-
     # Run service tests
     service_tests_passed = run_service_tests()
 
@@ -415,7 +413,7 @@ if __name__ == "__main__":
 
     if service_tests_passed and integration_passed:
         print("✅ All tests passed!")
-        sys.exit(0)
+        exit(0)
     else:
         print("❌ Some tests failed!")
-        sys.exit(1)
+        exit(1)

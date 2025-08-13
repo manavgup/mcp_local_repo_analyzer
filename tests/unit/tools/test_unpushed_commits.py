@@ -12,10 +12,7 @@ from fastmcp import Client, FastMCP
 from mcp_local_repo_analyzer.tools.unpushed_commits import (
     register_unpushed_commits_tools,
 )
-from mcp_shared_lib.models import (
-    BranchStatus,
-    UnpushedCommit,
-)
+from mcp_shared_lib.models import BranchStatus, UnpushedCommit
 
 
 async def call_tool_helper(mcp, tool_name: str, **kwargs):

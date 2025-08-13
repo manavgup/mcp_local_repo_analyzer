@@ -7,11 +7,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from mcp_local_repo_analyzer.tools.staging_area import register_staging_area_tools
-from mcp_shared_lib.models import (
-    ChangeCategorization,
-    RiskAssessment,
-    StagedChanges,
-)
+from mcp_shared_lib.models import ChangeCategorization, RiskAssessment, StagedChanges
 from mcp_shared_lib.models.git.files import FileStatus
 
 
@@ -1179,20 +1175,18 @@ class TestStagingAreaIntegration:
         client = Client(mcp)
         async with client:
             # Test analyze_staged_changes tool exists
-            try:
+            from contextlib import suppress
+
+            with suppress(Exception):
                 await client.call_tool(
                     "analyze_staged_changes", {"repository_path": self.repo_path}
                 )
-            except Exception:
-                pass  # We just want to verify the tool exists, not that it succeeds
 
             # Test preview_commit tool exists
-            try:
+            with suppress(Exception):
                 await client.call_tool(
                     "preview_commit", {"repository_path": self.repo_path}
                 )
-            except Exception:
-                pass  # We just want to verify the tool exists, not that it succeeds
 
         # Tool functions are verified by successful calls above
 

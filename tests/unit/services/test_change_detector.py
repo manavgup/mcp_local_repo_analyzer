@@ -7,10 +7,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from mcp_local_repo_analyzer.services.git.change_detector import ChangeDetector
-from mcp_shared_lib.models.git.changes import (
-    StagedChanges,
-    WorkingDirectoryChanges,
-)
+from mcp_shared_lib.models.git.changes import StagedChanges, WorkingDirectoryChanges
 from mcp_shared_lib.models.git.repository import LocalRepository
 from mcp_shared_lib.services.git.git_client import GitClient
 

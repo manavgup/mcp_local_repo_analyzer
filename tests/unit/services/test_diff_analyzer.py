@@ -6,11 +6,7 @@ import pytest
 
 from mcp_local_repo_analyzer.services.git.diff_analyzer import DiffAnalyzer
 from mcp_shared_lib.config.git_analyzer import GitAnalyzerSettings
-from mcp_shared_lib.models import (
-    ChangeCategorization,
-    FileStatus,
-    RiskAssessment,
-)
+from mcp_shared_lib.models import ChangeCategorization, FileStatus, RiskAssessment
 
 
 @pytest.mark.unit
@@ -689,4 +685,3 @@ index abc123..def456 100644
         assert len(most_changed) == 3
         assert most_changed[0]["path"] == "big_change.py"
         assert most_changed[0]["changes"] == 150
-

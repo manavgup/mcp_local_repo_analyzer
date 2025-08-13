@@ -159,18 +159,21 @@ class TestCLI:
 
     def test_parse_args_invalid_transport(self):
         """Test parsing with invalid transport."""
-        with patch("sys.argv", ["cli.py", "--transport", "invalid"]):
-            with pytest.raises(SystemExit):
-                parse_args()
+        with patch("sys.argv", ["cli.py", "--transport", "invalid"]), pytest.raises(
+            SystemExit
+        ):
+            parse_args()
 
     def test_parse_args_invalid_log_level(self):
         """Test parsing with invalid log level."""
-        with patch("sys.argv", ["cli.py", "--log-level", "INVALID"]):
-            with pytest.raises(SystemExit):
-                parse_args()
+        with patch("sys.argv", ["cli.py", "--log-level", "INVALID"]), pytest.raises(
+            SystemExit
+        ):
+            parse_args()
 
     def test_parse_args_invalid_port(self):
         """Test parsing with invalid port."""
-        with patch("sys.argv", ["cli.py", "--port", "not_a_number"]):
-            with pytest.raises(SystemExit):
-                parse_args()
+        with patch("sys.argv", ["cli.py", "--port", "not_a_number"]), pytest.raises(
+            SystemExit
+        ):
+            parse_args()
