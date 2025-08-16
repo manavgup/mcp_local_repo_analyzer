@@ -9,7 +9,7 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Any, Optional
+from typing import Any
 
 import requests
 
@@ -155,7 +155,7 @@ class MCPInspectorClient:
             print(f"❌ Could not connect to inspector: {e}")
             return False
 
-    def create_server_connection(self, server_config: dict[str, Any]) -> Optional[str]:
+    def create_server_connection(self, server_config: dict[str, Any]) -> str | None:
         """Create a server connection through the proxy"""
         try:
             payload = {
@@ -203,7 +203,7 @@ class MCPInspectorClient:
 
     def send_mcp_message(
         self, connection_id: str, message: dict[str, Any]
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Send an MCP message through the proxy"""
         try:
             # Try different possible endpoints

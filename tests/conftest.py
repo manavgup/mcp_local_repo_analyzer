@@ -9,7 +9,7 @@ import shutil
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -599,11 +599,11 @@ def create_mock_git_status(modified=None, untracked=None, staged=None, deleted=N
 
 
 def create_mock_commit(
-    hash_id: Optional[str] = None,
-    message: Optional[str] = None,
-    author: Optional[str] = None,
-    timestamp: Optional[datetime] = None,
-    files: Optional[list[str]] = None,
+    hash_id: str | None = None,
+    message: str | None = None,
+    author: str | None = None,
+    timestamp: datetime | None = None,
+    files: list[str] | None = None,
 ) -> dict[str, Any]:
     """Create a mock commit object."""
     return {

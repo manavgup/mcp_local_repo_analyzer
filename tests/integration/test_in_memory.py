@@ -49,7 +49,7 @@ async def test_in_memory():
                     "max_diff_lines": 10,
                 },  # Keep it simple for testing
             )
-            assert isinstance(result, (dict, list))
+            assert isinstance(result, dict | list)
             print("✅ Working directory analysis:")
             print_result_summary(result)
         except Exception as e:
@@ -61,7 +61,7 @@ async def test_in_memory():
             result = await client.call_tool(
                 "get_outstanding_summary", {"repository_path": ".", "detailed": False}
             )
-            assert isinstance(result, (dict, list))
+            assert isinstance(result, dict | list)
             print("✅ Outstanding summary:")
             print_result_summary(result)
         except Exception as e:

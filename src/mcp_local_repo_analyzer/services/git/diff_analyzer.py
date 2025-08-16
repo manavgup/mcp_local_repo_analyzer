@@ -97,8 +97,9 @@ class DiffAnalyzer:
                 old_path = line[6:]
             elif line.startswith("+++ b/"):
                 file_path = line[6:]
-            elif line.startswith("a/") and " b/" in line:
-                # Handle the git diff header line
+            elif (line.startswith("a/") or line.startswith(" a/")) and " b/" in line:
+                # Handle the git diff header line (may have leading space after split)
+                line = line.lstrip()  # Remove leading whitespace
                 parts = line.split(" b/")
                 if len(parts) == 2:
                     old_path = parts[0][2:]  # Remove 'a/'
